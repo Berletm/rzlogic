@@ -7,6 +7,8 @@ add_subdirectory(tests)
 
 add_executable(logic
             src/main.cpp
-            src/parser.cpp)
+            src/parser.cpp
+            src/logic.cpp
+)
 
 target_include_directories(logic PRIVATE include)

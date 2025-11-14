@@ -16,7 +16,7 @@ std::string Parser::read_atom()
     return input.substr(start, pos - start);
 }
 
-TermPtr Parser::parse_term()
+FormulaPtr Parser::parse_term()
 {
     skip_whitespace();
 
@@ -24,7 +24,7 @@ TermPtr Parser::parse_term()
     {
         pos++;
         std::string name = read_atom();
-        std::vector<TermPtr> args;
+        std::vector<FormulaPtr> args;
 
         while (input[pos] != ')')
         {
@@ -38,12 +38,12 @@ TermPtr Parser::parse_term()
     {
         std::string name = read_atom();
 
-        if (name.size() == 1 and (name[0] - 109) < 0)
+        if (name.size() >= 1 && tolower(name[0]) >= 's')
         {
-            return std::make_shared<Constant>(name);
+            return std::make_shared<BasicTerm>(name, BasicTerm::VARIABLE);
         }
 
-        return std::make_shared<Variable>(name);
+        return std::make_shared<BasicTerm>(name, BasicTerm::CONSTANT);
     }
 }
 
@@ -88,13 +88,13 @@ FormulaPtr Parser::parse_formula()
         }
         else
         {
-            std::vector<TermPtr> args;
+            std::vector<FormulaPtr> args;
             while (input[pos] != ')')
             {
                 args.push_back(parse_term());
             }
             ++pos;
-            return std::make_shared<Atomic>(op, args);
+            return std::make_shared<Function>(op, args);
         }
     }
     else

@@ -13,7 +13,7 @@ private:
     { while (pos < input.size() and isspace(input[pos])) ++pos; }
 
     std::string read_atom();
-    TermPtr     parse_term();
+    FormulaPtr  parse_term();
     FormulaPtr  parse_formula();
 public:
     FormulaPtr parse(const std::string& s);
