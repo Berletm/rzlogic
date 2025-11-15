@@ -7,17 +7,28 @@ class Parser
 {
 private:
     std::string input;
-    size_t pos;
+    char *cur_char;
 
-    inline void skip_whitespace() 
-    { while (pos < input.size() and isspace(input[pos])) ++pos; }
+    enum class TokenType
+    {
+        LPAREN,
+        RPAREN,
+        IDENTIFIER,
+        END
+    };
 
-    std::string read_atom();
-    FormulaPtr  parse_term();
-    FormulaPtr  parse_formula();
+    std::string token_str;
+    TokenType   token_type;
+
+    void        ParseToken();
+    Formula*    ParseFormula();
+    Formula*    ParseTerm();
+    
 public:
-    FormulaPtr parse(const std::string& s);
+    Parser(const std::string &s) : input(s), cur_char((char*)input.c_str()) {}
+    Formula *Parse();
 };
 
+void ReadFormula(const char *str);
 
 #endif

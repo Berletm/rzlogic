@@ -13,13 +13,13 @@ int main(int argc, char* argv[])
         "(exists x (or (x) (a)))"
     };
 
-    Parser parser;
     for (const auto& s : premises) 
     {
         try 
         {
-            FormulaPtr f = parser.parse(s);
-            std::cout << "Parsed: " << f->to_string() << "\n";
+            Formula *f = Parser(s).Parse();
+            std::cout << "Parsed: " << FormulaAsString(f) << "\n";
+            DeleteFormula(f);
         } 
         catch (const std::exception& e) 
         {

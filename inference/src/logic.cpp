@@ -1,71 +1,126 @@
 #include "logic.hpp"
 #include <functional>
 
-void DoForAll(FormulaPtr f, std::function<void(Formula*)> func)
+std::string FunctionAsString(std::string_view name, std::vector<Formula*> &args)
 {
-    std::vector<FormulaPtr> stack;
+    std::string result = "(" + std::string(name);
+    for (Formula *arg : args) {
+        result += " " + FormulaAsString(arg);
+    }
+
+    result += ")";
+    return std::move(result);
+}
+
+std::string GetFormulaTypeStr(FormulaType type)
+{
+    switch (type) {
+        #define X(type, str) case FormulaType::type: return str;
+        FOR_ALL_FORMULA_TYPES
+        #undef X
+    }
+
+    return "";
+}
+
+std::string FormulaAsString(Formula *f)
+{
+    switch (f->type) {
+    case FormulaType::NOT:
+    case FormulaType::AND:
+    case FormulaType::OR:
+    case FormulaType::IMPLIES:
+        return FunctionAsString(GetFormulaTypeStr(f->type), f->children);
+
+    case FormulaType::EXISTS:
+    case FormulaType::FORALL:
+        return FunctionAsString(GetFormulaTypeStr(f->type) + " " + f->str, f->children);
+    
+    case FormulaType::PREDICATE:
+    case FormulaType::FUNCTION:
+        return FunctionAsString(f->str, f->children);
+
+    case FormulaType::VARIABLE:
+    case FormulaType::CONSTANT:
+        return f->str;
+    }
+    return "";
+}
+
+void DeleteFormula(Formula *f)
+{
+    for (Formula *child : f->children) {
+        DeleteFormula(child);
+    }
+    delete f;
+}
+
+void DoForAll(Formula *f, std::function<void(Formula*)> func)
+{
+    std::vector<Formula*> stack;
 
     stack.push_back(f);
     while (!stack.empty()) {
-        FormulaPtr formula = stack.back();
-        func(formula.get());
+        Formula *formula = stack.back();
         stack.pop_back();
 
-        size_t children_count = formula->children_count();
-        for (int i = 0; i < children_count; i++) {
-            stack.push_back(formula->get_child(i));
+        func(formula);
+
+        for (Formula *child : formula->children) {
+            stack.push_back(child);
         }
     }
 }
 
-FormulaPtr PushNegations(FormulaPtr f)
+void PushNegations(Formula *f)
 {
-    Not *not_f = dynamic_cast<Not*>(f.get());
-    
-    if (not_f) {
-        Formula *child = not_f->get_child(0).get();
-        Not *not_child = dynamic_cast<Not*>(child);
-        Or *or_child = dynamic_cast<Or*>(child);
-        And *and_child = dynamic_cast<And*>(child);
-        ForAll *forall_child = dynamic_cast<ForAll*>(child);
-        Exists *exists_child = dynamic_cast<Exists*>(child);
+    if (f->type == FormulaType::NOT) {
+        Formula *child = f->children[0];
+        
+        switch (child->type) {
+        case FormulaType::NOT: // !!A = A
+            {
+                Formula *A = child->children[0];
+                *f = std::move(*A);
+                delete child;
+                delete A;
+                break;
+            }
 
-        if (not_child) {
-            return PushNegations(not_child->f);
-        }
-        if (or_child) {
-            return std::make_shared<And>(
-                PushNegations(std::make_shared<Not>(or_child->left_f)),
-                PushNegations(std::make_shared<Not>(or_child->right_f))
-            );
-        }
-        if (and_child) {
-            return std::make_shared<Or>(
-                PushNegations(std::make_shared<Not>(and_child->left_f)),
-                PushNegations(std::make_shared<Not>(and_child->right_f))
-            );
-        }
-        if (forall_child) {
-            return std::make_shared<Exists>(
-                forall_child->var_name,
-                PushNegations(std::make_shared<Not>(forall_child->body))
-            );
-        }
-        if (exists_child) {
-            return std::make_shared<ForAll>(
-                exists_child->var_name,
-                PushNegations(std::make_shared<Not>(exists_child->body))
-            );
+        case FormulaType::OR:   // !(A v B) = !A ^ !B
+        case FormulaType::AND:  // !(A ^ B) = !A v !B
+            {
+                Formula *A = child->children[0], *B = child->children[1];
+                
+                Formula *not_A = new Formula(FormulaType::NOT); not_A->children.push_back(A);
+                Formula *not_B = new Formula(FormulaType::NOT); not_B->children.push_back(B);
+                
+                f->type = (child->type == FormulaType::OR) ? FormulaType::AND : FormulaType::OR;
+                f->children.resize(2);
+                f->children[0] = not_A;
+                f->children[1] = not_B;
+                delete child;
+                break;
+            }
+        case FormulaType::FORALL:   // !forall_x A = exists_x !A
+        case FormulaType::EXISTS:   // !exists_x A = forall_x !A
+            {
+                Formula *A = child->children[0];
+                
+                f->type = (child->type == FormulaType::FORALL) ? FormulaType::EXISTS : FormulaType::FORALL;
+                f->str = child->str;
+                child->type = FormulaType::NOT;
+                child->str.clear();
+                break;
+            }
+        default:
+            break;
         }
     }
 
-    FormulaPtr new_f = f->copy();
-    size_t children_count = new_f->children_count();
-    for (int i = 0; i < children_count; i++) {
-        new_f->set_child(i, PushNegations(f->get_child(i)));
+    for (Formula *child : f->children) {
+        PushNegations(child);
     }
-
-    return new_f;
 }
 
 std::string GenerateUniqueName(std::string name, std::vector<std::string> &names)
@@ -84,98 +139,94 @@ std::string GenerateUniqueName(std::string name, std::vector<std::string> &names
     return cur_name;
 }
 
-void RenameBasicTerm(FormulaPtr f, std::string &old_name, std::string &new_name)
+void RenameVariable(Formula *f, std::string &old_name, std::string &new_name)
 {
-    DoForAll(f, [&old_name, &new_name](Formula *f) {
-        BasicTerm *bt = dynamic_cast<BasicTerm*>(f);
-        if (bt && bt->name == old_name) bt->name = new_name;
+    DoForAll(f, [&old_name, &new_name](Formula *ff) {
+        if (ff->type == FormulaType::VARIABLE && ff->str == old_name) {
+            ff->str = new_name;
+        }
     });
 }
 
-FormulaPtr UnifyNames(FormulaPtr f, std::vector<std::string> &names)
+void UnifyNames(Formula *f, std::vector<std::string> &names)
 {
-    ForAll *forall_child = dynamic_cast<ForAll*>(f.get());
-    Exists *exists_child = dynamic_cast<Exists*>(f.get());
-
-    if (forall_child)
-    {
-        std::string new_name = GenerateUniqueName(forall_child->var_name, names);
+    if (f->type == FormulaType::FORALL || f->type == FormulaType::EXISTS) {
+        std::string new_name = GenerateUniqueName(f->str, names);
         names.push_back(new_name);
-        FormulaPtr new_f = std::make_shared<ForAll>(new_name, UnifyNames(forall_child->body, names));
-        RenameBasicTerm(new_f->get_child(0), forall_child->var_name, new_name);
-        return new_f;
-    }
-    if (exists_child)
-    {
-        std::string new_name = GenerateUniqueName(exists_child->var_name, names);
-        names.push_back(new_name);
-        FormulaPtr new_f = std::make_shared<Exists>(new_name, UnifyNames(exists_child->body, names));
-        RenameBasicTerm(new_f->get_child(0), exists_child->var_name, new_name);
-        return new_f;
+        RenameVariable(f->children[0], f->str, new_name);
+        f->str = new_name;
     }
 
-    FormulaPtr new_f = f->copy();
-    size_t children_count = new_f->children_count();
-    for (int i = 0; i < children_count; i++) {
-        new_f->set_child(i, UnifyNames(f->get_child(i), names));
+    for (Formula *child : f->children) {
+        UnifyNames(child, names);
     }
-    return new_f;
 }
 
 enum class Operation {
     And, Or
 };
 
-FormulaPtr ExtractQuantifiers(FormulaPtr a, FormulaPtr b, Operation op)
+void ExtractQuantifiers(Formula *f)
 {
-    ForAll *forall_a = dynamic_cast<ForAll*>(a.get());
-    Exists *exists_a = dynamic_cast<Exists*>(a.get());
-    ForAll *forall_b = dynamic_cast<ForAll*>(b.get());
-    Exists *exists_b = dynamic_cast<Exists*>(b.get());
+    Formula *A = f->children[0];
+    Formula *B = f->children[1];
+    FormulaType op = f->type;
 
-    if (forall_a) return std::make_shared<ForAll>(forall_a->var_name, ExtractQuantifiers(forall_a->body, b, op));
-    if (exists_a) return std::make_shared<Exists>(exists_a->var_name, ExtractQuantifiers(exists_a->body, b, op));
-    if (forall_b) return std::make_shared<ForAll>(forall_b->var_name, ExtractQuantifiers(a, forall_b->body, op));
-    if (exists_b) return std::make_shared<Exists>(exists_b->var_name, ExtractQuantifiers(a, exists_b->body, op));
+    if (A->type == FormulaType::FORALL || A->type == FormulaType::EXISTS) {
+        // A v B = (forall_x Q) v B   --->   forall_x (Q v B)
+        Formula *Q = A->children[0];
 
-    if (op == Operation::And) return std::make_shared<And>(a, b);
-    if (op == Operation::Or) return std::make_shared<Or>(a, b);
-    throw std::runtime_error("Unknown operation");
+        f->type = A->type;
+        f->str  = A->str;
+        f->children.resize(1);
+        f->children[0] = A;
+
+        A->type = op;
+        A->str.clear();
+        A->children.resize(2);
+        A->children[0] = Q;
+        A->children[1] = B;
+
+        ExtractQuantifiers(A);
+        return;
+    }
+
+    if (B->type == FormulaType::FORALL || B->type == FormulaType::EXISTS) {
+        // A v B = A v (forall_x Q)   --->   forall_x (A v Q)
+        Formula *Q = B->children[0];
+
+        f->type = B->type;
+        f->str  = B->str;
+        f->children.resize(1);
+        f->children[0] = B;
+
+        B->type = op;
+        B->str.clear();
+        B->children.resize(2);
+        B->children[0] = A;
+        B->children[1] = Q;
+
+        ExtractQuantifiers(B);
+        return;
+    }
 }
 
-FormulaPtr MoveQuantifiers(FormulaPtr f)
+void MoveQuantifiers(Formula *f)
 {
-    And *and_f = dynamic_cast<And*>(f.get());
-    Or *or_f = dynamic_cast<Or*>(f.get());
-
-    if (and_f)
-    {
-        FormulaPtr a = MoveQuantifiers(and_f->left_f);
-        FormulaPtr b = MoveQuantifiers(and_f->right_f);
-        return ExtractQuantifiers(a, b, Operation::And);   
-    }
-    if (or_f)
-    {
-        FormulaPtr a = MoveQuantifiers(or_f->left_f);
-        FormulaPtr b = MoveQuantifiers(or_f->right_f);
-        return ExtractQuantifiers(a, b, Operation::Or);
+    for (Formula *child : f->children) {
+        MoveQuantifiers(child);
     }
 
-    FormulaPtr new_f = f->copy();
-    size_t children_count = new_f->children_count();
-    for (int i = 0; i < children_count; i++) {
-        new_f->set_child(i, MoveQuantifiers(f->get_child(i)));
+    if (f->type == FormulaType::AND || f->type == FormulaType::OR) {
+        ExtractQuantifiers(f);   
     }
-    return new_f;
 }
 
-FormulaPtr MakePrenexNormalForm(FormulaPtr f)
+void MakePrenexNormalForm(Formula *f)
 {
     std::vector<std::string> names;
 
-    FormulaPtr result = UnifyNames(f, names);
-    result = PushNegations(result);
-    result = MoveQuantifiers(result);
-
-    return result;
+    UnifyNames(f, names);
+    PushNegations(f);
+    MoveQuantifiers(f);
 }

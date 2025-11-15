@@ -1,54 +1,115 @@
 #include <gtest/gtest.h>
 #include "logic.hpp"
 
-#define $ std::make_shared
-#define VAR(x) std::make_shared<BasicTerm>(x, BasicTerm::Type::VARIABLE)
-#define CONST(x) std::make_shared<BasicTerm>(x, BasicTerm::Type::CONSTANT)
+Formula *And(Formula *A, Formula *B)
+{
+    Formula *res = new Formula(FormulaType::AND);
+    res->children.push_back(A);
+    res->children.push_back(B);
+    return res;
+}
+
+Formula *Or(Formula *A, Formula *B)
+{
+    Formula *res = new Formula(FormulaType::OR);
+    res->children.push_back(A);
+    res->children.push_back(B);
+    return res;
+}
+
+Formula *ForAll(std::string var, Formula *A)
+{
+    Formula *res = new Formula(FormulaType::FORALL, var);
+    res->children.push_back(A);
+    return res;
+}
+
+Formula *Exists(std::string var, Formula *A)
+{
+    Formula *res = new Formula(FormulaType::EXISTS, var);
+    res->children.push_back(A);
+    return res;
+}
+
+Formula *Not(Formula *A)
+{
+    Formula *res = new Formula(FormulaType::NOT);
+    res->children.push_back(A);
+    return res;
+}
+
+Formula *Predicate(std::string name, std::initializer_list<Formula*> terms) {
+    Formula *res = new Formula(FormulaType::PREDICATE, name);
+    for (auto f : terms) {
+        res->children.push_back(f);
+    }
+    return res;
+}
+
+Formula *Function(std::string name, std::initializer_list<Formula*> terms) {
+    Formula *res = new Formula(FormulaType::FUNCTION, name);
+    for (auto f : terms) {
+        res->children.push_back(f);
+    }
+    return res;
+}
+
+Formula *Var(std::string name) {
+    return new Formula(FormulaType::VARIABLE, name);
+}
+
+Formula *Const(std::string name) {
+    return new Formula(FormulaType::CONSTANT, name);
+}
 
 TEST(ParserTest, PNFTest)
 {
-    using V = std::vector<FormulaPtr>;
-    using T = BasicTerm;
     
     // ∀∃
 
-    // ∃x P(x) or ∃x Q(x)
-    FormulaPtr f1 = $<Or>(
-        $<Exists>("x", $<Function>("P", V{VAR("x")})),
-        $<ForAll>("x", $<Function>("Q", V{VAR("x")}))
+    // ∃x P(x) or ∀x Q(x) ---> ∃x ∀x1 (Q(x1) or P(x))
+    Formula *f1 = Or(
+        Exists("x", Function("P", {Var("x")})),
+        ForAll("x", Function("Q", {Var("x")}))
     );
-    ASSERT_EQ(MakePrenexNormalForm(f1)->to_string(), "(exists x (forall x1 (or (P x)(Q x1))))");
+    MakePrenexNormalForm(f1);
+    ASSERT_EQ(FormulaAsString(f1), "(exists x (forall x1 (or (P x) (Q x1))))");
+    DeleteFormula(f1);
 
-    // !∀z S(z)   ---> ∃z !S(z)
-    FormulaPtr f2 = $<Not>($<ForAll>("z", $<Function>("S", V{VAR("z")})));
-    ASSERT_EQ(MakePrenexNormalForm(f2)->to_string(), "(exists z (not (S z)))");
+    // !∀z S(z) ---> ∃z !S(z)
+    Formula *f2 = Not(ForAll("z", Predicate("S", {Var("z")})));
+    MakePrenexNormalForm(f2);
+    ASSERT_EQ(FormulaAsString(f2), "(exists z (not (S z)))");
+    DeleteFormula(f2);
 
-    // !!P(c)
-    FormulaPtr f3 = $<Not>($<Not>($<Function>("P", V{CONST("c")})));
-    ASSERT_EQ(MakePrenexNormalForm(f3)->to_string(), "(P c)");
+    // !!P(c) ---> P(c)
+    Formula *f3 = Not(Not(Predicate("P", {Const("c")})));
+    MakePrenexNormalForm(f3);
+    ASSERT_EQ(FormulaAsString(f3), "(P c)");
+    DeleteFormula(f3);
 
     // !∀x (∃y(!∀z (P(f(x,y), z) and (Q(x) or !R(y)))) OR ∀z(∃w (S(z, h(w)) and !T(w)) ))
-    FormulaPtr f4 = $<Not>($<ForAll>("x",                                           // !∀x
-        $<Or>(
-            $<Exists>("y",                                                          // ∃y
-                $<Not>($<ForAll>("z",                                               // !∀z
-                    $<And>(
-                        $<Function>("P", V{                                         // P(f(x, y), z)
-                            $<Function>("f", V{VAR("x"), VAR("y")}), VAR("z")       // and
+    Formula *f4 = Not(ForAll("x",                                             // !∀x
+        Or(
+            Exists("y",                                                       // ∃y
+                Not(ForAll("z",                                               // !∀z
+                    And(
+                        Predicate("P", {                                      // P(f(x, y), z)
+                            Function("f", {Var("x"), Var("y")}), Var("z")     // and
                         }),
-                        $<Or>(
-                            $<Function>("Q", V{VAR("x")}),                          // Q(x) or
-                            $<Not>($<Function>("R", V{VAR("y")}))                   // !R(y)
+                        Or(
+                            Predicate("Q", {Var("x")}),                       // Q(x) or
+                            Not(Predicate("R", {Var("y")}))                   // !R(y)
                         )
                     )
-                ))                                                                  // OR
+                ))                                                            // OR
             ),
-            $<ForAll>("z", $<Exists>("w",                                           // ∀z ∃w
-                    $<And>(
-                        $<Function>("S", V{                                         // S(z, h(w))
-                            VAR("z"), $<Function>("h", V{VAR("w")})
-                        }),                                                         // and
-                        $<Not>($<Function>("T", V{VAR("w")}))                       // !T(w)
+            ForAll("z", Exists("w",                                           // ∀z ∃w
+                    And(
+                        Predicate("S", {                                      // S(z, h(w))
+                            Var("z"), Function("h", {Var("w")})
+                        }),                                                   // and
+                        Not(Predicate("T", {Var("w")}))                       // !T(w)
                     )
                 )
             )
@@ -65,5 +126,7 @@ TEST(ParserTest, PNFTest)
     // ∃x (∀y (∀z ∃z1 ∀w (P(f(x,y), z) and (Q(x) or !R(y))) AND ((!S(z1, h(w)) or T(w)) ) ))
     // ???? OK?
 
-    ASSERT_EQ(MakePrenexNormalForm(f4)->to_string(), "(exists x (forall y (forall z (exists z1 (forall w (and (and (P (f x y) z)(or (Q x)(not (R y))))(or (not (S z1 (h w)))(T w))))))))");
+    MakePrenexNormalForm(f4);
+    ASSERT_EQ(FormulaAsString(f4), "(exists x (forall y (forall z (exists z1 (forall w (and (and (P (f x y) z) (or (Q x) (not (R y)))) (or (not (S z1 (h w))) (T w))))))))");
+    DeleteFormula(f4);
 }
