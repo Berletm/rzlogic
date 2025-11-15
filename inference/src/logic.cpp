@@ -77,11 +77,13 @@ void DoForAll(Formula *f, std::function<void(Formula*)> func)
 
 void PushNegations(Formula *f)
 {
-    if (f->type == FormulaType::NOT) {
+    if (f->type == FormulaType::NOT) 
+    {
         Formula *child = f->children[0];
         
-        switch (child->type) {
-        case FormulaType::NOT: // !!A = A
+        switch (child->type) 
+        {
+            case FormulaType::NOT: // !!A = A
             {
                 Formula *A = child->children[0];
                 *f = std::move(*A);
@@ -90,8 +92,8 @@ void PushNegations(Formula *f)
                 break;
             }
 
-        case FormulaType::OR:   // !(A v B) = !A ^ !B
-        case FormulaType::AND:  // !(A ^ B) = !A v !B
+            case FormulaType::OR:   // !(A v B) = !A ^ !B
+            case FormulaType::AND:  // !(A ^ B) = !A v !B
             {
                 Formula *A = child->children[0], *B = child->children[1];
                 
@@ -105,8 +107,8 @@ void PushNegations(Formula *f)
                 delete child;
                 break;
             }
-        case FormulaType::FORALL:   // !forall_x A = exists_x !A
-        case FormulaType::EXISTS:   // !exists_x A = forall_x !A
+            case FormulaType::FORALL:   // !forall_x A = exists_x !A
+            case FormulaType::EXISTS:   // !exists_x A = forall_x !A
             {
                 Formula *A = child->children[0];
                 
@@ -116,12 +118,13 @@ void PushNegations(Formula *f)
                 child->str.clear();
                 break;
             }
-        default:
-            break;
+            default:
+                break;
         }
     }
 
-    for (Formula *child : f->children) {
+    for (Formula *child : f->children) 
+    {
         PushNegations(child);
     }
 }
@@ -164,10 +167,6 @@ void UnifyNames(Formula *f, std::vector<std::string> &names)
         UnifyNames(child, names);
     }
 }
-
-enum class Operation {
-    And, Or
-};
 
 void ExtractQuantifiers(Formula *f)
 {
@@ -225,7 +224,7 @@ void MoveQuantifiers(Formula *f)
     }
 }
 
-void MakePrenexNormalForm(Formula *f)
+void  MakePrenexNormalForm(Formula *f)
 {
     std::vector<std::string> names;
 
@@ -234,14 +233,17 @@ void MakePrenexNormalForm(Formula *f)
     MoveQuantifiers(f);
 }
 
-void RemoveImplications(Formula* f) {
+void RemoveImplications(Formula* f) 
+{
     if (!f) return;
 
-    for (Formula* child : f->children) {
+    for (Formula* child : f->children) 
+    {
         RemoveImplications(child);
     }
     
-    if (f->type == FormulaType::IMPLIES) {
+    if (f->type == FormulaType::IMPLIES)
+    {
         Formula* A = f->children[0];
         Formula* B = f->children[1];
 
@@ -255,14 +257,16 @@ void RemoveImplications(Formula* f) {
     }
 }
 
-void ToNNF(Formula* f) {
+void ToNNF(Formula* f)
+{
     if (!f) return;
 
     RemoveImplications(f);
 
     PushNegations(f);
 
-    for (Formula* child : f->children) {
+    for (Formula* child : f->children) 
+    {
         ToNNF(child);
     }
 }
@@ -289,23 +293,29 @@ void ReplaceVariable(Formula* f, const std::string& old_var, Formula* new_term, 
     }
 }
 
-void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem_counter) {
+void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem_counter) 
+{
     if (!f) return;
     
-    if (f->type == FormulaType::EXISTS) {
+    if (f->type == FormulaType::EXISTS) 
+    {
         std::string var_name = f->str;
         Formula* body = f->children[0];
 
         Formula* skolem_term;
         
-        if (universal_vars.empty()) {
+        if (universal_vars.empty()) 
+        {
             skolem_term = new Formula(FormulaType::CONSTANT);
             skolem_term->str = "sk" + std::to_string(skolem_counter++);
-        } else {
+        }
+        else 
+        {
             skolem_term = new Formula(FormulaType::FUNCTION);
             skolem_term->str = "f" + std::to_string(skolem_counter++);
             
-            for (const auto& uv : universal_vars) {
+            for (const auto& uv : universal_vars) 
+            {
                 Formula* var = new Formula(FormulaType::VARIABLE);
                 var->str = uv;
                 skolem_term->children.push_back(var);
@@ -329,21 +339,24 @@ void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem
 
         Skolemize(f, universal_vars, skolem_counter);
     }
-    else if (f->type == FormulaType::FORALL) {
+    else if (f->type == FormulaType::FORALL) 
+    {
 
         universal_vars.push_back(f->str);
         Skolemize(f->children[0], universal_vars, skolem_counter);
         universal_vars.pop_back();
     }
-    else {
-
-        for (Formula* child : f->children) {
+    else 
+    {
+        for (Formula* child : f->children) 
+        {
             Skolemize(child, universal_vars, skolem_counter);
         }
     }
 }
 
-void DropUniversalQuantifiers(Formula* f) {
+void DropUniversalQuantifiers(Formula* f) 
+{
     if (!f) return;
     
     if (f->type == FormulaType::FORALL) {
@@ -459,7 +472,8 @@ void ToCNF(Formula* f) {
     } while (changed);
 }
 
-Formula* CloneFormula(Formula* f) {
+Formula* CloneFormula(Formula* f) 
+{
     if (!f) return nullptr;
     
     Formula* new_f = new Formula(f->type, f->str);
@@ -469,28 +483,21 @@ Formula* CloneFormula(Formula* f) {
     return new_f;
 }
 
-Formula* ToSkolemNormalForm(Formula* f) {
-    if (!f) {
-        std::cout << "ошибка: Входная формула = nullptr\n";
-        return nullptr;
-    }
-
+Formula* ToSkolemNormalForm(Formula* f) 
+{
     Formula* result = CloneFormula(f);
     ToNNF(result);
 
     MakePrenexNormalForm(result);
     
-    std::cout << "скулемизация - замена экзистенциальных кванторов\n";
     std::vector<std::string> universal_vars;
     int skolem_counter = 0;
+
     Skolemize(result, universal_vars, skolem_counter);
-    std::cout << "   Результат: " << FormulaAsString(result) << "\n\n";
 
     DropUniversalQuantifiers(result);
 
-    std::cout << "Приведение к КНФ\n";
     ToCNF(result);
-    std::cout << "   Результат: " << FormulaAsString(result) << "\n";
     
     return result;
 }

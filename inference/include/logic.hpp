@@ -28,7 +28,8 @@ enum class FormulaType {
 };
 
 
-struct Formula {
+struct Formula 
+{
     FormulaType type;
     std::vector<Formula*> children;
     std::string str; // function name / predicate name / variable name / constant name
@@ -41,19 +42,13 @@ struct Formula {
 std::string FormulaAsString(Formula *f);
 void        DeleteFormula(Formula *f);
 void        MakePrenexNormalForm(Formula *f);
-void DoForAll(Formula *f, std::function<void(Formula*)> func);
-Formula* CloneFormula(Formula* f);
 
-// Преобразования
+
+Formula* CloneFormula(Formula* f);
 void RemoveImplications(Formula* f);
 void ToNNF(Formula* f);
-void PushNegations(Formula *f);
-void MakePrenexNormalForm(Formula *f);
 void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem_counter);
-void DropUniversalQuantifiers(Formula* f, std::vector<std::string>& free_vars);
-Formula* AddUniversalQuantifiers(Formula* f, const std::vector<std::string>& free_vars);
 void ToCNF(Formula* f);
-void SimplifyFormula(Formula* f);
 Formula* ToSkolemNormalForm(Formula* f);
 
 #endif
