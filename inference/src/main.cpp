@@ -1,4 +1,6 @@
 #include <iostream>
+#include <vector>
+#include <string>
 #include "logic.hpp"
 #include "parser.hpp"
 
