@@ -16,6 +16,14 @@ Formula *Or(Formula *A, Formula *B)
     return res;
 }
 
+Formula *Implies(Formula *A, Formula *B)
+{
+    Formula *res = new Formula(FormulaType::IMPLIES);
+    res->children.push_back(A);
+    res->children.push_back(B);
+    return res;
+}
+
 Formula *ForAll(std::string var, Formula *A)
 {
     Formula *res = new Formula(FormulaType::FORALL, var);

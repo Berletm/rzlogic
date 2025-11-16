@@ -9,6 +9,7 @@ add_executable(
     test_parser.cpp
     test_pnf.cpp
     test_snf.cpp
+    test_cnf.cpp
     utils.cpp
     ../src/parser.cpp
     ../src/logic.cpp

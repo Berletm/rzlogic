@@ -6,6 +6,8 @@ Formula *And(Formula *A, Formula *B);
 
 Formula *Or(Formula *A, Formula *B);
 
+Formula *Implies(Formula *A, Formula *B);
+
 Formula *ForAll(std::string var, Formula *A);
 
 Formula *Exists(std::string var, Formula *A);

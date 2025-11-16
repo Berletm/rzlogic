@@ -347,20 +347,34 @@ void DropUniversalQuantifiers(Formula *f)
     }
 }
 
+void MakeSkolemNormalForm(Formula *f) 
+{
+    std::vector<std::string> universal_vars;
+    int skolem_counter = 0;
+
+    Skolemize(f, universal_vars, skolem_counter);
+
+    DropUniversalQuantifiers(f);
+}
+
 void DistributeOrOverAnd(Formula *f) 
 {
     if (!f) return;
 
-    for (Formula* child : f->children) {
+    for (Formula* child : f->children) 
+    {
         DistributeOrOverAnd(child);
     }
     
-    if (f->type == FormulaType::OR) {
+    if (f->type == FormulaType::OR) 
+    {
         Formula* left = f->children[0];
         Formula* right = f->children[1];
         
         // A ∨ (B ∧ C) = (A ∨ B) ∧ (A ∨ C)
-        if (right->type == FormulaType::AND) {
+        // (OR A (AND В С))
+        if (right->type == FormulaType::AND) 
+        {
             Formula* A = left;
             Formula* B = right->children[0];
             Formula* C = right->children[1];
@@ -382,7 +396,9 @@ void DistributeOrOverAnd(Formula *f)
             f->children.push_back(or2);
         }
         // (A ∧ B) ∨ C = (A ∨ C) ∧ (B ∨ C)
-        else if (left->type == FormulaType::AND) {
+        // (OR (AND A B) C)
+        else if (left->type == FormulaType::AND) 
+        {
             Formula* A = left->children[0];
             Formula* B = left->children[1];
             Formula* C = right;
@@ -406,7 +422,7 @@ void DistributeOrOverAnd(Formula *f)
     }
 }
 
-void ToCNF(Formula *f) 
+void MakeConjunctiveNormalForm(Formula *f) 
 {
     if (!f) return;
 
@@ -414,15 +430,20 @@ void ToCNF(Formula *f)
     do {
         changed = false;
 
-        std::function<bool(Formula*)> needsDistribution = [&](Formula* formula) -> bool {
+        std::function<bool(Formula*)> needsDistribution = [&](Formula* formula) -> bool 
+        {
             if (!formula) return false;
             
-            if (formula->type == FormulaType::OR) {
-                for (Formula* child : formula->children) {
-                    if (child->type == FormulaType::AND) {
+            if (formula->type == FormulaType::OR) 
+            {
+                for (Formula* child : formula->children) 
+                {
+                    if (child->type == FormulaType::AND) 
+                    {
                         return true;
                     }
-                    if (needsDistribution(child)) {
+                    if (needsDistribution(child)) 
+                    {
                         return true;
                     }
                 }
@@ -430,7 +451,8 @@ void ToCNF(Formula *f)
             return false;
         };
         
-        if (needsDistribution(f)) {
+        if (needsDistribution(f)) 
+        {
             DistributeOrOverAnd(f);
             changed = true;
         }
@@ -442,18 +464,37 @@ Formula* CloneFormula(Formula *f)
     if (!f) return nullptr;
     
     Formula* new_f = new Formula(f->type, f->str);
-    for (Formula* child : f->children) {
+
+    for (Formula* child : f->children) 
+    {
         new_f->children.push_back(CloneFormula(child));
     }
     return new_f;
 }
 
-void MakeSkolemNormalForm(Formula *f) 
+void NormalizeFormula(Formula *f)
 {
-    std::vector<std::string> universal_vars;
-    int skolem_counter = 0;
+    if (!f) return;
 
-    Skolemize(f, universal_vars, skolem_counter);
+    for (Formula *child: f->children)
+    {
+        NormalizeFormula(child);
+    }
 
-    DropUniversalQuantifiers(f);
+    // A -> B = !A ∨ B
+    // (IMPLIES A B) = (OR (NOT A) B)
+    if (f->type == FormulaType::IMPLIES)
+    {
+        Formula *left = f->children[0];
+        Formula *right = f->children[1];
+
+        f->type = FormulaType::OR;
+        f->children.clear();
+
+        Formula *not_left = new Formula(FormulaType::NOT);
+        not_left->children.push_back(left);
+
+        f->children.push_back(not_left);
+        f->children.push_back(right);
+    }
 }
