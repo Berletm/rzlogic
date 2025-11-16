@@ -1,5 +1,8 @@
 #include "logic.hpp"
 #include <functional>
+#include <iostream>
+#include <algorithm>
+#include <unordered_map>
 
 std::string FunctionAsString(std::string_view name, std::vector<Formula*> &args)
 {
@@ -49,7 +52,8 @@ std::string FormulaAsString(Formula *f)
 
 void DeleteFormula(Formula *f)
 {
-    for (Formula *child : f->children) {
+    for (Formula *child : f->children) 
+    {
         DeleteFormula(child);
     }
     delete f;
@@ -74,11 +78,13 @@ void DoForAll(Formula *f, std::function<void(Formula*)> func)
 
 void PushNegations(Formula *f)
 {
-    if (f->type == FormulaType::NOT) {
+    if (f->type == FormulaType::NOT) 
+    {
         Formula *child = f->children[0];
         
-        switch (child->type) {
-        case FormulaType::NOT: // !!A = A
+        switch (child->type) 
+        {
+            case FormulaType::NOT: // !!A = A
             {
                 Formula *A = child->children[0];
                 *f = std::move(*A);
@@ -87,8 +93,8 @@ void PushNegations(Formula *f)
                 break;
             }
 
-        case FormulaType::OR:   // !(A v B) = !A ^ !B
-        case FormulaType::AND:  // !(A ^ B) = !A v !B
+            case FormulaType::OR:   // !(A v B) = !A ^ !B
+            case FormulaType::AND:  // !(A ^ B) = !A v !B
             {
                 Formula *A = child->children[0], *B = child->children[1];
                 
@@ -102,8 +108,8 @@ void PushNegations(Formula *f)
                 delete child;
                 break;
             }
-        case FormulaType::FORALL:   // !forall_x A = exists_x !A
-        case FormulaType::EXISTS:   // !exists_x A = forall_x !A
+            case FormulaType::FORALL:   // !forall_x A = exists_x !A
+            case FormulaType::EXISTS:   // !exists_x A = forall_x !A
             {
                 Formula *A = child->children[0];
                 
@@ -113,12 +119,13 @@ void PushNegations(Formula *f)
                 child->str.clear();
                 break;
             }
-        default:
-            break;
+            default:
+                break;
         }
     }
 
-    for (Formula *child : f->children) {
+    for (Formula *child : f->children) 
+    {
         PushNegations(child);
     }
 }
@@ -161,10 +168,6 @@ void UnifyNames(Formula *f, std::vector<std::string> &names)
         UnifyNames(child, names);
     }
 }
-
-enum class Operation {
-    And, Or
-};
 
 void ExtractQuantifiers(Formula *f)
 {
@@ -222,11 +225,235 @@ void MoveQuantifiers(Formula *f)
     }
 }
 
-void MakePrenexNormalForm(Formula *f)
+void  MakePrenexNormalForm(Formula *f)
 {
     std::vector<std::string> names;
 
     UnifyNames(f, names);
     PushNegations(f);
     MoveQuantifiers(f);
+}
+
+void ReplaceVariable(Formula *f, const std::string &old_var, Formula *new_term, const std::vector<std::string> &bound_vars) 
+{
+    if (!f) return;
+ 
+    if ((f->type == FormulaType::FORALL || f->type == FormulaType::EXISTS) && f->str == old_var) 
+    {
+        return;
+    }
+
+    if (f->type == FormulaType::VARIABLE && f->str == old_var) 
+    {
+        if (std::find(bound_vars.begin(), bound_vars.end(), old_var) == bound_vars.end()) 
+        {
+            std::vector<Formula*> old_children = f->children;
+            for (Formula* old_child : old_children) 
+            {
+                DeleteFormula(old_child);
+            }
+
+            f->str = new_term->str;
+            f->type = new_term->type;
+            f->children = new_term->children;
+        }
+    } 
+    else 
+    {
+        for (Formula* child : f->children) 
+        {
+            ReplaceVariable(child, old_var, new_term, bound_vars);
+        }
+    }
+}
+
+void Skolemize(Formula *f, std::vector<std::string> &universal_vars, int &skolem_counter) 
+{
+    if (!f) return;
+    
+    if (f->type == FormulaType::EXISTS) 
+    {
+        std::string var_name = f->str;
+        Formula* body = f->children[0];
+
+        Formula* skolem_term;
+        
+        if (universal_vars.empty()) 
+        {
+            skolem_term = new Formula(FormulaType::CONSTANT);
+            skolem_term->str = char(97 + skolem_counter++);
+        }
+        else 
+        {
+            skolem_term = new Formula(FormulaType::FUNCTION);
+            skolem_term->str = char(110 + skolem_counter++);
+            
+            for (const auto& uv : universal_vars) 
+            {
+                Formula* var = new Formula(FormulaType::VARIABLE);
+                var->str = uv;
+                skolem_term->children.push_back(var);
+            }
+        }
+
+        ReplaceVariable(body, var_name, skolem_term, universal_vars);
+
+        f->type = body->type;
+        f->str = body->str;
+        f->children = body->children;
+
+        delete body;
+        delete skolem_term;
+
+        Skolemize(f, universal_vars, skolem_counter);
+    }
+    else if (f->type == FormulaType::FORALL) 
+    {
+        universal_vars.push_back(f->str);
+        Skolemize(f->children[0], universal_vars, skolem_counter);
+        universal_vars.pop_back();
+    }
+    else 
+    {
+        for (Formula* child : f->children) 
+        {
+            Skolemize(child, universal_vars, skolem_counter);
+        }
+    }
+}
+
+void DropUniversalQuantifiers(Formula *f) 
+{
+    if (!f) return;
+    
+    if (f->type == FormulaType::FORALL) 
+    {
+        Formula* body = f->children[0];
+    
+        f->type = body->type;
+        f->str = std::move(body->str);
+        f->children = std::move(body->children);
+        
+        delete body;
+
+        DropUniversalQuantifiers(f);
+    }
+    else 
+    {
+        for (Formula* child : f->children) 
+        {
+            DropUniversalQuantifiers(child);
+        }
+    }
+}
+
+void DistributeOrOverAnd(Formula *f) 
+{
+    if (!f) return;
+
+    for (Formula* child : f->children) {
+        DistributeOrOverAnd(child);
+    }
+    
+    if (f->type == FormulaType::OR) {
+        Formula* left = f->children[0];
+        Formula* right = f->children[1];
+        
+        // A ∨ (B ∧ C) = (A ∨ B) ∧ (A ∨ C)
+        if (right->type == FormulaType::AND) {
+            Formula* A = left;
+            Formula* B = right->children[0];
+            Formula* C = right->children[1];
+            
+            Formula* or1 = new Formula(FormulaType::OR);
+            or1->children.push_back(CloneFormula(A));
+            or1->children.push_back(CloneFormula(B));
+            
+            Formula* or2 = new Formula(FormulaType::OR);
+            or2->children.push_back(CloneFormula(A));
+            or2->children.push_back(CloneFormula(C));
+            
+            DeleteFormula(f->children[0]);
+            DeleteFormula(f->children[1]);
+            f->children.clear();
+            
+            f->type = FormulaType::AND;
+            f->children.push_back(or1);
+            f->children.push_back(or2);
+        }
+        // (A ∧ B) ∨ C = (A ∨ C) ∧ (B ∨ C)
+        else if (left->type == FormulaType::AND) {
+            Formula* A = left->children[0];
+            Formula* B = left->children[1];
+            Formula* C = right;
+            
+            Formula* or1 = new Formula(FormulaType::OR);
+            or1->children.push_back(CloneFormula(A));
+            or1->children.push_back(CloneFormula(C));
+            
+            Formula* or2 = new Formula(FormulaType::OR);
+            or2->children.push_back(CloneFormula(B));
+            or2->children.push_back(CloneFormula(C));
+
+            DeleteFormula(f->children[0]);
+            DeleteFormula(f->children[1]);
+            f->children.clear();
+            
+            f->type = FormulaType::AND;
+            f->children.push_back(or1);
+            f->children.push_back(or2);
+        }
+    }
+}
+
+void ToCNF(Formula *f) 
+{
+    if (!f) return;
+
+    bool changed;
+    do {
+        changed = false;
+
+        std::function<bool(Formula*)> needsDistribution = [&](Formula* formula) -> bool {
+            if (!formula) return false;
+            
+            if (formula->type == FormulaType::OR) {
+                for (Formula* child : formula->children) {
+                    if (child->type == FormulaType::AND) {
+                        return true;
+                    }
+                    if (needsDistribution(child)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        
+        if (needsDistribution(f)) {
+            DistributeOrOverAnd(f);
+            changed = true;
+        }
+    } while (changed);
+}
+
+Formula* CloneFormula(Formula *f) 
+{
+    if (!f) return nullptr;
+    
+    Formula* new_f = new Formula(f->type, f->str);
+    for (Formula* child : f->children) {
+        new_f->children.push_back(CloneFormula(child));
+    }
+    return new_f;
+}
+
+void MakeSkolemNormalForm(Formula *f) 
+{
+    std::vector<std::string> universal_vars;
+    int skolem_counter = 0;
+
+    Skolemize(f, universal_vars, skolem_counter);
+
+    DropUniversalQuantifiers(f);
 }

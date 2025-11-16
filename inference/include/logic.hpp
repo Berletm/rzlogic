@@ -3,6 +3,10 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+#include <iostream>
+#include <functional>
+#include <unordered_set>
 
 // X(enum_name, str_name)
 #define FOR_ALL_FORMULA_TYPES \
@@ -24,7 +28,8 @@ enum class FormulaType {
 };
 
 
-struct Formula {
+struct Formula 
+{
     FormulaType type;
     std::vector<Formula*> children;
     std::string str; // function name / predicate name / variable name / constant name
@@ -34,8 +39,18 @@ struct Formula {
     Formula() {}
 };
 
+// PNF
 std::string FormulaAsString(Formula *f);
 void        DeleteFormula(Formula *f);
 void        MakePrenexNormalForm(Formula *f);
+
+// SNF
+void        Skolemize(Formula *f, std::vector<std::string> &universal_vars, int &skolem_counter);
+void        DropUniversalQuantifiers(Formula *f);
+void        MakeSkolemNormalForm(Formula *f);
+
+// CNF
+Formula* CloneFormula(Formula *f);
+void ToCNF(Formula *f);
 
 #endif
