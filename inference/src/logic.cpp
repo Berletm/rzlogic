@@ -233,7 +233,8 @@ void  MakePrenexNormalForm(Formula *f)
     MoveQuantifiers(f);
 }
 
-void ReplaceVariable(Formula* f, const std::string& old_var, Formula* new_term, const std::vector<std::string>& bound_vars) {
+void ReplaceVariable(Formula *f, const std::string &old_var, Formula *new_term, const std::vector<std::string> &bound_vars) 
+{
     if (!f) return;
  
     if ((f->type == FormulaType::FORALL || f->type == FormulaType::EXISTS) && f->str == old_var) 
@@ -259,7 +260,7 @@ void ReplaceVariable(Formula* f, const std::string& old_var, Formula* new_term, 
     }
 }
 
-void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem_counter) 
+void Skolemize(Formula *f, std::vector<std::string> &universal_vars, int &skolem_counter) 
 {
     if (!f) return;
     
@@ -314,7 +315,7 @@ void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem
     }
 }
 
-void DropUniversalQuantifiers(Formula* f) 
+void DropUniversalQuantifiers(Formula *f) 
 {
     if (!f) return;
     
@@ -339,7 +340,8 @@ void DropUniversalQuantifiers(Formula* f)
     }
 }
 
-void DistributeOrOverAnd(Formula* f) {
+void DistributeOrOverAnd(Formula *f) 
+{
     if (!f) return;
 
     for (Formula* child : f->children) {
@@ -397,7 +399,8 @@ void DistributeOrOverAnd(Formula* f) {
     }
 }
 
-void ToCNF(Formula* f) {
+void ToCNF(Formula *f) 
+{
     if (!f) return;
 
     bool changed;
@@ -427,7 +430,7 @@ void ToCNF(Formula* f) {
     } while (changed);
 }
 
-Formula* CloneFormula(Formula* f) 
+Formula* CloneFormula(Formula *f) 
 {
     if (!f) return nullptr;
     
@@ -438,7 +441,7 @@ Formula* CloneFormula(Formula* f)
     return new_f;
 }
 
-void MakeSkolemNormalForm(Formula* f) 
+void MakeSkolemNormalForm(Formula *f) 
 {
     std::vector<std::string> universal_vars;
     int skolem_counter = 0;
