@@ -50,7 +50,8 @@ void        DropUniversalQuantifiers(Formula *f);
 void        MakeSkolemNormalForm(Formula *f);
 
 // CNF
-Formula* CloneFormula(Formula *f);
-void ToCNF(Formula *f);
+Formula*    CloneFormula(Formula *f);
+void        NormalizeFormula(Formula* f);
+void        MakeConjunctiveNormalForm(Formula *f);
 
 #endif

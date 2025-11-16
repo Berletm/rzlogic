@@ -12,22 +12,30 @@ int main(int argc, char* argv[])
         "(forall x (implies (P x) (Q (f x))))",
         "(P a)",
         "(not (Q y))",
-        "(exists x (or (x) (a)))"
+        "(exists x (or x a))"
     };
 
-    for (const auto& s : premises) 
-    {
-        try 
-        {
-            Formula *f = Parser(s).Parse();
-            std::cout << "Parsed: " << FormulaAsString(f) << "\n";
-            DeleteFormula(f);
-        } 
-        catch (const std::exception& e) 
-        {
-            std::cerr << "Parse error in '" << s << "': " << e.what() << "\n";
-        }
-    }
+    Formula *f = Parser(premises[0]).Parse();
+
+    // 1. Remove implications
+
+    NormalizeFormula(f);
+
+    // 2. Make PNF
+    
+    MakePrenexNormalForm(f);
+
+    // 3. Make SNF (remove ∃, ∀)
+
+    MakeSkolemNormalForm(f);
+
+    // 4. Make CNF
+
+    MakeConjunctiveNormalForm(f);
+    
+    std::cout << FormulaAsString(f) << "\n";
+
+    // 5. Make Resolution
 
     return 0;
 }
