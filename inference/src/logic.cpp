@@ -52,7 +52,8 @@ std::string FormulaAsString(Formula *f)
 
 void DeleteFormula(Formula *f)
 {
-    for (Formula *child : f->children) {
+    for (Formula *child : f->children) 
+    {
         DeleteFormula(child);
     }
     delete f;
@@ -246,9 +247,15 @@ void ReplaceVariable(Formula *f, const std::string &old_var, Formula *new_term, 
     {
         if (std::find(bound_vars.begin(), bound_vars.end(), old_var) == bound_vars.end()) 
         {
-            Formula* clone = CloneFormula(new_term);
-            *f = *clone;
-            delete clone;
+            std::vector<Formula*> old_children = f->children;
+            for (Formula* old_child : old_children) 
+            {
+                DeleteFormula(old_child);
+            }
+
+            f->str = new_term->str;
+            f->type = new_term->type;
+            f->children = new_term->children;
         }
     } 
     else 
