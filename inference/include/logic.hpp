@@ -44,11 +44,13 @@ void        DeleteFormula(Formula *f);
 void        MakePrenexNormalForm(Formula *f);
 
 
+void DropUniversalQuantifiers(Formula* f);
+
 Formula* CloneFormula(Formula* f);
 void RemoveImplications(Formula* f);
 void ToNNF(Formula* f);
 void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem_counter);
 void ToCNF(Formula* f);
-Formula* ToSkolemNormalForm(Formula* f);
+void MakeSkolemNormalForm(Formula* f);
 
 #endif

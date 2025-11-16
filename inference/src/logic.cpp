@@ -233,61 +233,27 @@ void  MakePrenexNormalForm(Formula *f)
     MoveQuantifiers(f);
 }
 
-void RemoveImplications(Formula* f) 
-{
-    if (!f) return;
-
-    for (Formula* child : f->children) 
-    {
-        RemoveImplications(child);
-    }
-    
-    if (f->type == FormulaType::IMPLIES)
-    {
-        Formula* A = f->children[0];
-        Formula* B = f->children[1];
-
-        Formula* notA = new Formula(FormulaType::NOT);
-        notA->children.push_back(CloneFormula(A));
-        
-        f->type = FormulaType::OR;
-        f->children.clear();
-        f->children.push_back(notA);
-        f->children.push_back(B);
-    }
-}
-
-void ToNNF(Formula* f)
-{
-    if (!f) return;
-
-    RemoveImplications(f);
-
-    PushNegations(f);
-
-    for (Formula* child : f->children) 
-    {
-        ToNNF(child);
-    }
-}
-
 void ReplaceVariable(Formula* f, const std::string& old_var, Formula* new_term, const std::vector<std::string>& bound_vars) {
     if (!f) return;
  
-    if ((f->type == FormulaType::FORALL || f->type == FormulaType::EXISTS) && f->str == old_var) {
+    if ((f->type == FormulaType::FORALL || f->type == FormulaType::EXISTS) && f->str == old_var) 
+    {
         return;
     }
 
-    if (f->type == FormulaType::VARIABLE && f->str == old_var) {
-
-        if (std::find(bound_vars.begin(), bound_vars.end(), old_var) == bound_vars.end()) {
-
+    if (f->type == FormulaType::VARIABLE && f->str == old_var) 
+    {
+        if (std::find(bound_vars.begin(), bound_vars.end(), old_var) == bound_vars.end()) 
+        {
             Formula* clone = CloneFormula(new_term);
             *f = *clone;
             delete clone;
         }
-    } else {
-        for (Formula* child : f->children) {
+    } 
+    else 
+    {
+        for (Formula* child : f->children) 
+        {
             ReplaceVariable(child, old_var, new_term, bound_vars);
         }
     }
@@ -307,12 +273,12 @@ void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem
         if (universal_vars.empty()) 
         {
             skolem_term = new Formula(FormulaType::CONSTANT);
-            skolem_term->str = "sk" + std::to_string(skolem_counter++);
+            skolem_term->str = char(97 + skolem_counter++);
         }
         else 
         {
             skolem_term = new Formula(FormulaType::FUNCTION);
-            skolem_term->str = "f" + std::to_string(skolem_counter++);
+            skolem_term->str = char(110 + skolem_counter++);
             
             for (const auto& uv : universal_vars) 
             {
@@ -324,24 +290,17 @@ void Skolemize(Formula* f, std::vector<std::string>& universal_vars, int& skolem
 
         ReplaceVariable(body, var_name, skolem_term, universal_vars);
 
-        Formula* new_body = CloneFormula(body);
-  
-        DeleteFormula(f->children[0]);
-        f->children.clear();
+        f->type = body->type;
+        f->str = body->str;
+        f->children = body->children;
 
-        f->type = new_body->type;
-        f->str = new_body->str;
-        f->children = new_body->children;
-
-        new_body->children.clear();
-        delete new_body;
+        delete body;
         delete skolem_term;
 
         Skolemize(f, universal_vars, skolem_counter);
     }
     else if (f->type == FormulaType::FORALL) 
     {
-
         universal_vars.push_back(f->str);
         Skolemize(f->children[0], universal_vars, skolem_counter);
         universal_vars.pop_back();
@@ -359,26 +318,22 @@ void DropUniversalQuantifiers(Formula* f)
 {
     if (!f) return;
     
-    if (f->type == FormulaType::FORALL) {
+    if (f->type == FormulaType::FORALL) 
+    {
         Formula* body = f->children[0];
-
-        Formula* body_clone = CloneFormula(body);
-
-        DeleteFormula(f->children[0]);
-        f->children.clear();
+    
+        f->type = body->type;
+        f->str = std::move(body->str);
+        f->children = std::move(body->children);
         
-        f->type = body_clone->type;
-        f->str = body_clone->str;
-        f->children = body_clone->children;
-        
-        body_clone->children.clear();
-        delete body_clone;
+        delete body;
 
         DropUniversalQuantifiers(f);
     }
-    else {
-
-        for (Formula* child : f->children) {
+    else 
+    {
+        for (Formula* child : f->children) 
+        {
             DropUniversalQuantifiers(child);
         }
     }
@@ -483,21 +438,12 @@ Formula* CloneFormula(Formula* f)
     return new_f;
 }
 
-Formula* ToSkolemNormalForm(Formula* f) 
+void MakeSkolemNormalForm(Formula* f) 
 {
-    Formula* result = CloneFormula(f);
-    ToNNF(result);
-
-    MakePrenexNormalForm(result);
-    
     std::vector<std::string> universal_vars;
     int skolem_counter = 0;
 
-    Skolemize(result, universal_vars, skolem_counter);
+    Skolemize(f, universal_vars, skolem_counter);
 
-    DropUniversalQuantifiers(result);
-
-    ToCNF(result);
-    
-    return result;
+    DropUniversalQuantifiers(f);
 }
