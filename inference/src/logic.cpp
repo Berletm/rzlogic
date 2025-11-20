@@ -1,8 +1,6 @@
 #include "logic.hpp"
 #include <functional>
-#include <iostream>
 #include <algorithm>
-#include <unordered_map>
 
 std::string FunctionAsString(std::string_view name, std::vector<Formula*> &args)
 {
@@ -497,4 +495,119 @@ void NormalizeFormula(Formula *f)
         f->children.push_back(not_left);
         f->children.push_back(right);
     }
+}
+
+bool FormulaContainsVariable(Formula *f, const std::string &var)
+{
+    std::vector<Formula*> stack;
+    stack.push_back(f);
+
+    while (!stack.empty()) {
+        Formula *cur = stack.back();
+        stack.pop_back();
+
+        if (cur->type == FormulaType::VARIABLE && cur->str == var) {
+            return true;
+        }
+
+        for (Formula *child : cur->children) {
+            stack.push_back(child);
+        }
+    }
+
+    return false;
+}
+
+void ApplyMapping(Formula *p1, std::map<std::string, Formula*> &mappings)
+{
+    DoForAll(p1, [&mappings](Formula* f) {
+        if (f->type != FormulaType::VARIABLE) return;
+        auto it = mappings.find(f->str);
+        if (it == mappings.end()) return;
+
+        Formula *cloned = CloneFormula(it->second);
+        *f = std::move(*cloned);
+        delete cloned; // stupid
+    });
+}
+
+void UpdateMappings(std::map<std::string, Formula*> &mappings, std::map<std::string, Formula*> &new_mappings)
+{
+    for (auto& [var_name, formula] : mappings) {
+        ApplyMapping(formula, new_mappings);
+    }
+
+    for (auto& [var_name, formula] : new_mappings) {
+        if (mappings.find(var_name) == mappings.end()) {
+            mappings[var_name] = formula;
+        }
+    }
+
+    // remove x --> x
+    for (auto it = mappings.begin(); it != mappings.end();) {
+        if (it->second->type == FormulaType::VARIABLE && it->first == it->second->str) {
+            it = mappings.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+}
+
+bool MapPredicateToPredicate(Formula *p1, Formula *p2, std::map<std::string, Formula*> &mappings)
+{
+    if ((p1->type == FormulaType::PREDICATE || p1->type == FormulaType::FUNCTION) && p2->type == p1->type) {
+        if (p1->str != p2->str || p1->children.size() != p2->children.size()) {
+            return false;
+        }
+        
+        for (int i = 0; i < p1->children.size(); i++) {
+            Formula *child1 = CloneFormula(p1->children[i]);
+            Formula *child2 = CloneFormula(p2->children[i]);
+            ApplyMapping(child1, mappings);
+            ApplyMapping(child2, mappings);
+
+            std::map<std::string, Formula*> new_mappings;
+            if (!MapPredicateToPredicate(child1, child2, new_mappings)) {
+                DeleteFormula(child1);
+                DeleteFormula(child2);
+                return false;
+            }
+
+            UpdateMappings(mappings, new_mappings);
+
+            DeleteFormula(child1);
+            DeleteFormula(child2);
+        }
+
+        return true;
+    }
+
+    if (p1->type == FormulaType::VARIABLE) {
+        if (p2->type == FormulaType::VARIABLE && p1->str == p2->str) { // x = x. good
+            return true;
+        }
+
+        if (FormulaContainsVariable(p2, p1->str)) { // x = F(x). baaaad
+            return false;
+        }
+
+        mappings[p1->str] = CloneFormula(p2);
+        return true;
+    }  
+    
+    if (p2->type == FormulaType::VARIABLE) {
+        return MapPredicateToPredicate(p2, p1, mappings);
+    }
+
+    if (p1->type == FormulaType::CONSTANT && p2->type == FormulaType::CONSTANT) {
+        return (p1->str == p2->str);
+    }
+
+    /*
+    function predicate && predicate function
+    constant predicate && predicate constant
+    constant function && function constant
+    */
+    return false;
 }
