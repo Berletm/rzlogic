@@ -1,6 +1,8 @@
 #include "parser.hpp"
 #include <stdexcept>
 
+namespace rzlogic {
+
 Formula *Parser::ParseTerm()
 {
     if (token_type == TokenType::IDENTIFIER) {
@@ -149,3 +151,5 @@ Formula *Parser::Parse()
 
     return result;
 }
+
+} // namespace rzlogic

@@ -2,6 +2,8 @@
 #include "parser.hpp"
 #include <memory>
 
+using namespace rzlogic;
+
 TEST(ParserTest, BigFormulaTest)
 {
     std::vector<std::string> premises = 

@@ -15,25 +15,21 @@ int main(int argc, char* argv[])
         "(exists x (or x a))"
     };
 
-    Formula *f = Parser(premises[0]).Parse();
+    rzlogic::Formula *f = rzlogic::Parser(premises[0]).Parse();
 
     // 1. Remove implications
-
-    NormalizeFormula(f);
+    rzlogic::NormalizeFormula(f);
 
     // 2. Make PNF
-    
-    MakePrenexNormalForm(f);
+    rzlogic::MakePrenexNormalForm(f);
 
     // 3. Make SNF (remove ∃, ∀)
-
-    MakeSkolemNormalForm(f);
+    rzlogic::MakeSkolemNormalForm(f);
 
     // 4. Make CNF
-
-    MakeConjunctiveNormalForm(f);
+    rzlogic::MakeConjunctiveNormalForm(f);
     
-    std::cout << FormulaAsString(f) << "\n";
+    std::cout << rzlogic::FormulaAsString(f) << "\n";
 
     // 5. Make Resolution
 

@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "utils.hpp"
 
+using namespace rzlogic;
+
 TEST(FormsTest, DropQuntifiersTest)
 {
     Formula *f = ForAll("x", ForAll("y", Predicate("P", {Var("x")})));

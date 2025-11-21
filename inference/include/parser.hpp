@@ -3,6 +3,8 @@
 
 #include "logic.hpp"
 
+namespace rzlogic {
+
 class Parser
 {
 private:
@@ -30,5 +32,7 @@ public:
 };
 
 void ReadFormula(const char *str);
+
+} // namespace rzlogic
 
 #endif

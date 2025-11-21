@@ -5,10 +5,14 @@ project(logic)
 enable_testing()
 add_subdirectory(tests)
 
+add_library(
+    rzlogic
+    src/parser.cpp
+    src/logic.cpp
+)
+target_include_directories(rzlogic PUBLIC include)
+
 add_executable(logic
             src/main.cpp
-            src/parser.cpp
-            src/logic.cpp
 )
-
-target_include_directories(logic PRIVATE include)
+target_link_libraries(logic PUBLIC rzlogic)

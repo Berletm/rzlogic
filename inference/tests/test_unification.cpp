@@ -2,6 +2,8 @@
 #include "logic.hpp"
 #include "utils.hpp"
 
+using namespace rzlogic;
+
 bool FormulasEqual(Formula *f1, Formula *f2)
 {
     if (f1->type != f2->type) return false;
