@@ -10,6 +10,7 @@ add_executable(
     test_pnf.cpp
     test_snf.cpp
     test_cnf.cpp
+    test_unification.cpp
     utils.cpp
     ../src/parser.cpp
     ../src/logic.cpp

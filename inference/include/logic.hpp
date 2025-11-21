@@ -1,12 +1,9 @@
 #ifndef LOGIC_HPP
 #define LOGIC_HPP
 
+#include <map>
 #include <string>
 #include <vector>
-#include <memory>
-#include <iostream>
-#include <functional>
-#include <unordered_set>
 
 // X(enum_name, str_name)
 #define FOR_ALL_FORMULA_TYPES \
@@ -53,5 +50,7 @@ void        MakeSkolemNormalForm(Formula *f);
 Formula*    CloneFormula(Formula *f);
 void        NormalizeFormula(Formula* f);
 void        MakeConjunctiveNormalForm(Formula *f);
+
+bool MapPredicateToPredicate(Formula *p1, Formula *p2, std::map<std::string, Formula*> &mappings);
 
 #endif
