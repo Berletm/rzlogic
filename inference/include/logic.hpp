@@ -5,8 +5,10 @@
 #include <string>
 #include <vector>
 
+namespace rzlogic {
+
 // X(enum_name, str_name)
-#define FOR_ALL_FORMULA_TYPES \
+#define RZLOGIC_FOR_ALL_FORMULA_TYPES \
     X(NOT, "not") \
     X(AND, "and") \
     X(OR, "or") \
@@ -21,10 +23,9 @@
 
 enum class FormulaType {
     #define X(enum_name, str_name) enum_name,
-    FOR_ALL_FORMULA_TYPES
+    RZLOGIC_FOR_ALL_FORMULA_TYPES
     #undef X
 };
-
 
 struct Formula 
 {
@@ -46,18 +47,20 @@ struct ResolutionStepInfo
 
 // PNF
 std::string FormulaAsString(Formula *f);
+Formula*    CloneFormula(Formula *f);
 void        DeleteFormula(Formula *f);
-void        MakePrenexNormalForm(Formula *f);
+
+// PNF
+void MakePrenexNormalForm(Formula *f);
 
 // SNF
-void        Skolemize(Formula *f, std::vector<std::string> &universal_vars, int &skolem_counter);
-void        DropUniversalQuantifiers(Formula *f);
-void        MakeSkolemNormalForm(Formula *f);
+void Skolemize(Formula *f, std::vector<std::string> &universal_vars, int &skolem_counter);
+void DropUniversalQuantifiers(Formula *f);
+void MakeSkolemNormalForm(Formula *f);
 
 // CNF
-Formula*    CloneFormula(Formula *f);
-void        NormalizeFormula(Formula* f);
-void        MakeConjunctiveNormalForm(Formula *f);
+void NormalizeFormula(Formula* f);
+void MakeConjunctiveNormalForm(Formula *f);
 
 // Unification
 bool FormulasEqual(Formula *f1, Formula *f2);
@@ -71,5 +74,7 @@ void     RemoveResolver(Formula *f, Formula *resolver);
 Formula *ResolutionStep(Formula *f1, Formula *f2, Formula *resolver);
 bool     IsTautology(Formula *f);
 bool     MakeResolution(std::vector<Formula*> &premises, std::vector<ResolutionStepInfo> &history);
+
+} // namespace rzlogic
 
 #endif

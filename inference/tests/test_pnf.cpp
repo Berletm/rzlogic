@@ -2,6 +2,7 @@
 #include "logic.hpp"
 #include "utils.hpp"
 
+using namespace rzlogic;
 
 TEST(FormsTest, PNFTest)
 {

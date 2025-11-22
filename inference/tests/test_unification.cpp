@@ -2,6 +2,8 @@
 #include "logic.hpp"
 #include "utils.hpp"
 
+using namespace rzlogic;
+
 std::string MappingsAsString(std::map<std::string, Formula*> &mappings)
 {
     std::string result = "{";

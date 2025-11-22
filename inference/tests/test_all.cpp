@@ -3,6 +3,7 @@
 #include "utils.hpp"
 #include "parser.hpp"
 
+using namespace rzlogic;
 
 TEST(AllTest, ResolutionTest)
 {
@@ -38,11 +39,6 @@ TEST(AllTest, ResolutionTest)
     std::vector<ResolutionStepInfo> hist;
 
     bool ans = MakeResolution(formuls, hist);
-
-    for (auto info: hist)
-    {
-        std::cout << "Q1: " << FormulaAsString(info.premise1) << " Q2: " << FormulaAsString(info.premise2) << " R: " << FormulaAsString(info.resolvent) << "\n";
-    }
-
+    
     ASSERT_EQ(ans, true);
 }

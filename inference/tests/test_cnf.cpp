@@ -2,6 +2,8 @@
 #include "logic.hpp"
 #include "utils.hpp"
 
+using namespace rzlogic;
+
 TEST(FormsTest, NormalizeFormulaTest)
 {
     Formula *f1 = Implies(Var("x"), Var("y"));

@@ -2,6 +2,8 @@
 #include <functional>
 #include <algorithm>
 
+namespace rzlogic {
+
 std::string FunctionAsString(std::string_view name, std::vector<Formula*> &args)
 {
     std::string result = "(" + std::string(name);
@@ -17,7 +19,7 @@ std::string GetFormulaTypeStr(FormulaType type)
 {
     switch (type) {
         #define X(type, str) case FormulaType::type: return str;
-        FOR_ALL_FORMULA_TYPES
+        RZLOGIC_FOR_ALL_FORMULA_TYPES
         #undef X
     }
 
@@ -1210,3 +1212,4 @@ bool MakeResolution(std::vector<Formula*> &premises, std::vector<ResolutionStepI
 
     return false;
 }
+} // namespace rzlogic

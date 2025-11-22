@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include "utils.hpp"
 
+using namespace rzlogic;
+
 TEST(ResolutionTEST, SimpleResolver)
 {
     Formula *f1 = Or(Not(Predicate("P", {Const("a")})), Predicate("Q", {Const("b")}));

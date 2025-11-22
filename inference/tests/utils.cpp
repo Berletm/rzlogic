@@ -1,5 +1,7 @@
 #include "utils.hpp"
 
+using namespace rzlogic;
+
 Formula *And(Formula *A, Formula *B)
 {
     Formula *res = new Formula(FormulaType::AND);
