@@ -949,8 +949,152 @@ void SplitConjunctions(Formula *f, std::vector<Formula*> &premises)
     std::reverse(premises.begin(), premises.end());
 }
 
-void Resolution(std::vector<Formula*> &premises)
+bool IsTautology(Formula *f)
 {
+    std::vector<Formula*> stack;
+    std::vector<Formula*> predicates;
 
+    stack.push_back(f);
+
+    while(!stack.empty())
+    {
+        Formula *temp = stack.back();
+        stack.pop_back();
+
+        switch (temp->type)
+        {
+            case FormulaType::OR:
+            {
+                Formula *left  = temp->children[0];
+                Formula *right = temp->children[1];
+
+                if (left->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(left);
+                }
+                else
+                {
+                    stack.push_back(left);
+                }
+
+                if (right->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(right);
+                }
+                else
+                {
+                    stack.push_back(right);
+                }
+                break;
+            }
+
+            case FormulaType::NOT:
+            {
+                Formula *body = temp->children[0];
+                if (body->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(temp);
+                }
+                else
+                {
+                    stack.push_back(body);
+                }
+                break;
+            }
+            default: break;
+        }
+    }
+
+    for (int i = 0; i < predicates.size(); ++i)
+    {
+        Formula *p = predicates[i];
+        for (int j = i + 1; j < predicates.size(); ++j)
+        {
+            Formula *not_p = predicates[j];
+
+            if (p->type == FormulaType::NOT and 
+                not_p->type == FormulaType::PREDICATE and
+                FormulasEqual(p->children[0], not_p)
+            )
+            {
+                return true;
+            }
+            else if (p->type == FormulaType::PREDICATE and 
+                not_p->type == FormulaType::NOT and
+                FormulasEqual(not_p->children[0], p)
+            )
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
+bool MakeResolution(std::vector<Formula*> &premises)
+{
+    std::vector<Formula*> used_clauses = premises;
+    std::vector<std::pair<int, int>> tried_pairs;
+
+    while (true)
+    {
+        bool found_new_premise = false;
+
+        for (int i = 0; i < used_clauses.size(); ++i)
+        {
+            for (int j = i + 1; j < used_clauses.size(); ++j)
+            {
+                auto it_pair = std::find_if(tried_pairs.begin(), tried_pairs.end(),
+                [i, j] (const std::pair<int, int> p) 
+                {
+                    return (p.first == i) and (p.second == j);
+                });
+
+                if (it_pair != tried_pairs.end()) continue;
+                
+                tried_pairs.push_back({i, j});
+
+                if(Unificate(used_clauses[i], used_clauses[j]))
+                {
+                    Formula *resolver = FindResolver(used_clauses[i], used_clauses[j]);
+
+                    if (resolver)
+                    {
+                        Formula *res = ResolutionStep(used_clauses[i], used_clauses[j], resolver);
+                        if (res->type == FormulaType::EMPTY)
+                        {
+                            return true;
+                        }
+
+                        if (!IsTautology(res))
+                        {
+                            bool is_new_clause = true;
+                            for (Formula *premise : used_clauses)
+                            {
+                                if (FormulasEqual(res, premise))
+                                {
+                                    is_new_clause = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (is_new_clause)
+                            {
+                                used_clauses.push_back(res);
+                                found_new_premise = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!found_new_premise)
+        {
+            break;
+        }
+    }
+
+    return false;
+}

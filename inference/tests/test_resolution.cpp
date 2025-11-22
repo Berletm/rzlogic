@@ -59,6 +59,26 @@ TEST(ResoltuionTEST, ResolutionStepTest)
     DeleteFormula(step);
 }
 
+TEST(ResolutionTEST, ResolutionStepSimpleTest)
+{
+    Formula *f1 = Or(
+        Predicate("P", {Var("x")}), 
+        Predicate("Q", {Var("y")}));
+
+    Formula *f2 = Not(Predicate("P", {Var("z")}));
+
+    bool u_res = Unificate(f1, f2);
+
+    // Formula *res  = FindResolver(f1, f2);
+    // Formula *step = ResolutionStep(f1, f2, res);
+
+    ASSERT_TRUE(u_res);
+    // ASSERT_EQ(FormulaAsString(step), "(Q y)");
+
+    // DeleteFormula(res);
+    // DeleteFormula(step);
+}
+
 TEST(ResoltuionTEST, ResolutionStepEmptyFormulaTest)
 {
     Formula *f1 = Predicate("P", {Const("a")});
@@ -122,3 +142,33 @@ TEST(ResolutionTEST, SplitConjunctionsHardTest)
 
     DeleteFormula(f);
 }
+
+TEST(ResolutionTEST, IsTautologySimpleTest)
+{
+    Formula *f = Or(
+                    Not(Predicate("Q", {Const("a")})), 
+                    Predicate("Q", {Const("a")})
+                );
+
+    ASSERT_EQ(IsTautology(f), true);
+    
+    DeleteFormula(f);
+}
+
+TEST(ResolutionTEST, ResolutionSimpleTest)
+{
+    Formula *f1 = Or(Predicate("P", {Var("x")}), Predicate("Q", {Var("y")}));
+    Formula *f2 = Not(Predicate("P", {Var("z")}));
+    Formula *goal = Not(Predicate("Q", {Const("a")}));
+
+    std::vector<Formula*> premises = {f1, f2, goal};
+
+    bool ans = MakeResolution(premises);
+
+    ASSERT_TRUE(ans);
+
+    DeleteFormula(f1);
+    DeleteFormula(f2);
+    DeleteFormula(goal);
+}
+

@@ -62,6 +62,7 @@ void     SplitConjunctions(Formula *f, std::vector<Formula*> &premises);
 Formula *FindResolver(Formula *f1, Formula *f2);
 void     RemoveResolver(Formula *f, Formula *resolver);
 Formula *ResolutionStep(Formula *f1, Formula *f2, Formula *resolver);
+bool     IsTautology(Formula *f);
 bool     MakeResolution(std::vector<Formula*> &premises);
 
 #endif
