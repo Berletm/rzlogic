@@ -2,36 +2,6 @@
 #include "logic.hpp"
 #include "utils.hpp"
 
-bool FormulasEqual(Formula *f1, Formula *f2)
-{
-    if (f1->type != f2->type) return false;
-
-    switch (f1->type) {
-    case FormulaType::NOT:
-    case FormulaType::AND:
-    case FormulaType::OR:
-    case FormulaType::IMPLIES:
-        break;
-
-    case FormulaType::EXISTS:
-    case FormulaType::FORALL:
-    case FormulaType::PREDICATE:
-    case FormulaType::FUNCTION:
-    case FormulaType::VARIABLE:
-    case FormulaType::CONSTANT:
-        if (f1->str != f2->str) return false;
-        break;
-    }
-
-    if (f1->children.size() != f2->children.size()) return false;
-    for (int i = 0; i < f1->children.size(); i++)
-    {
-        if (!FormulasEqual(f1->children[i], f2->children[i])) return false;
-    }
-
-    return true;
-}
-
 std::string MappingsAsString(std::map<std::string, Formula*> &mappings)
 {
     std::string result = "{";
