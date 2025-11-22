@@ -12,6 +12,7 @@ add_executable(
     test_cnf.cpp
     test_unification.cpp
     test_resolution.cpp
+    test_all.cpp
     utils.cpp
     ../src/parser.cpp
     ../src/logic.cpp

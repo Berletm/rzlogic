@@ -7,13 +7,7 @@
 
 int main(int argc, char* argv[])
 {
-    std::vector<std::string> premises = 
-    {
-        "(forall x (implies (P x) (Q (f x))))",
-        "(P a)",
-        "(not (Q y))",
-        "(exists x (or x a))"
-    };
+    
     
     return 0;
 }

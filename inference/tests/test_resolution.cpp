@@ -69,14 +69,15 @@ TEST(ResolutionTEST, ResolutionStepSimpleTest)
 
     bool u_res = Unificate(f1, f2);
 
-    // Formula *res  = FindResolver(f1, f2);
-    // Formula *step = ResolutionStep(f1, f2, res);
+    Formula *res  = FindResolver(f1, f2);
+
+    Formula *step = ResolutionStep(f1, f2, res);
 
     ASSERT_TRUE(u_res);
-    // ASSERT_EQ(FormulaAsString(step), "(Q y)");
+    ASSERT_EQ(FormulaAsString(step), "(Q y)");
 
-    // DeleteFormula(res);
-    // DeleteFormula(step);
+    DeleteFormula(res);
+    DeleteFormula(step);
 }
 
 TEST(ResoltuionTEST, ResolutionStepEmptyFormulaTest)
@@ -87,7 +88,7 @@ TEST(ResoltuionTEST, ResolutionStepEmptyFormulaTest)
     Formula *res  = FindResolver(f1, f2);
     Formula *step = ResolutionStep(f1, f2, res);
 
-    ASSERT_EQ(FormulaAsString(step), "");
+    ASSERT_EQ(FormulaAsString(step), "□");
 
     DeleteFormula(res);
     DeleteFormula(step);
@@ -162,8 +163,9 @@ TEST(ResolutionTEST, ResolutionSimpleTest)
     Formula *goal = Not(Predicate("Q", {Const("a")}));
 
     std::vector<Formula*> premises = {f1, f2, goal};
+    std::vector<ResolutionStepInfo> history;
 
-    bool ans = MakeResolution(premises);
+    bool ans = MakeResolution(premises, history);
 
     ASSERT_TRUE(ans);
 
@@ -171,4 +173,3 @@ TEST(ResolutionTEST, ResolutionSimpleTest)
     DeleteFormula(f2);
     DeleteFormula(goal);
 }
-

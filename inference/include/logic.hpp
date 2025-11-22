@@ -37,6 +37,13 @@ struct Formula
     Formula() {}
 };
 
+struct ResolutionStepInfo
+{
+    Formula *premise1;
+    Formula *premise2;
+    Formula *resolvent;
+};
+
 // PNF
 std::string FormulaAsString(Formula *f);
 void        DeleteFormula(Formula *f);
@@ -63,6 +70,6 @@ Formula *FindResolver(Formula *f1, Formula *f2);
 void     RemoveResolver(Formula *f, Formula *resolver);
 Formula *ResolutionStep(Formula *f1, Formula *f2, Formula *resolver);
 bool     IsTautology(Formula *f);
-bool     MakeResolution(std::vector<Formula*> &premises);
+bool     MakeResolution(std::vector<Formula*> &premises, std::vector<ResolutionStepInfo> &history);
 
 #endif
