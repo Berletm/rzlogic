@@ -44,6 +44,8 @@ std::string FormulaAsString(Formula *f)
     case FormulaType::VARIABLE:
     case FormulaType::CONSTANT:
         return f->str;
+    case FormulaType::EMPTY:
+        return "□";
     }
     return "";
 }
@@ -609,5 +611,602 @@ bool MapPredicateToPredicate(Formula *p1, Formula *p2, std::map<std::string, For
     constant predicate && predicate constant
     constant function && function constant
     */
+    return false;
+}
+
+void FormulaToPredicates(Formula *&f, std::vector<Formula*> &predicates)
+{
+    std::vector<Formula*> stack;
+
+    stack.push_back(f);
+
+    while (!stack.empty())
+    {
+        Formula *temp = stack.back();
+        stack.pop_back();
+
+        switch (temp->type)
+        {
+            case FormulaType::OR:
+            {
+                Formula *left  = temp->children[0];
+                Formula *right = temp->children[1];
+
+                if (left->type == FormulaType::PREDICATE and right->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(left);
+                    predicates.push_back(right);
+                }
+                else if (left->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(left);
+                }
+                else if (right->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(right);
+                }
+                else 
+                {
+                    stack.push_back(left);
+                    stack.push_back(right);
+                }
+                break;
+            }
+            case FormulaType::PREDICATE:
+            case FormulaType::NOT:
+            {
+                predicates.push_back(temp);
+                break;
+            }
+            default: break;
+        }
+    }
+}
+
+bool Unificate(Formula *f1, Formula *f2)
+{
+    std::vector<Formula*> predicates_f1;
+    std::vector<Formula*> predicates_f2;
+
+    FormulaToPredicates(f1, predicates_f1);
+    FormulaToPredicates(f2, predicates_f2);
+
+    for (int i = 0; i < predicates_f1.size(); ++i)
+    {
+        Formula *p1 = predicates_f1[i];
+        for (int j = 0; j < predicates_f2.size(); ++j)
+        {   
+            std::map<std::string, Formula*> mapping;
+            Formula *p2 = predicates_f2[j];
+            
+            if (p1->type == FormulaType::PREDICATE and
+                p2->type == FormulaType::PREDICATE and
+                p1->str != p2->str
+            ) continue;
+            else if (p2->type == FormulaType::NOT and 
+                     p1->type == FormulaType::PREDICATE and
+                     p2->children[0]->str != p1->str 
+                     or
+                     p1->type == FormulaType::NOT and 
+                     p2->type == FormulaType::PREDICATE and
+                     p1->children[0]->str != p2->str
+            ) continue;
+            else if (p1->type == FormulaType::NOT and 
+                     p2->type == FormulaType::PREDICATE and
+                     p1->children[0]->str == p2->str
+            ) 
+            {
+                bool res = MapPredicateToPredicate(p1->children[0], p2, mapping);
+
+                if (!res) return false;
+
+                ApplyMapping(p1->children[0], mapping);
+                ApplyMapping(p2, mapping);
+            }
+            else if (p2->type == FormulaType::NOT and 
+                     p1->type == FormulaType::PREDICATE and
+                     p2->children[0]->str == p1->str
+            ) 
+            {
+                bool res = MapPredicateToPredicate(p1, p2->children[0], mapping);
+
+                if (!res) return false;
+
+                ApplyMapping(p1, mapping);
+                ApplyMapping(p2->children[0], mapping);
+            }
+            else
+            {
+                bool res = MapPredicateToPredicate(p1, p2, mapping);
+
+                if (!res) return false;
+
+                ApplyMapping(p1, mapping);
+                ApplyMapping(p2, mapping);
+            }
+        }
+    }
+
+    return true;
+}
+
+bool FormulasEqual(Formula *f1, Formula *f2)
+{
+    if (f1->type != f2->type) return false;
+
+    switch (f1->type) {
+    case FormulaType::NOT:
+    case FormulaType::AND:
+    case FormulaType::OR:
+    case FormulaType::IMPLIES:
+    case FormulaType::EMPTY:
+        break;
+
+    case FormulaType::EXISTS:
+    case FormulaType::FORALL:
+    case FormulaType::PREDICATE:
+    case FormulaType::FUNCTION:
+    case FormulaType::VARIABLE:
+    case FormulaType::CONSTANT:
+        if (f1->str != f2->str) return false;
+        break;
+    }
+
+    if (f1->children.size() != f2->children.size()) return false;
+    for (int i = 0; i < f1->children.size(); i++)
+    {
+        if (!FormulasEqual(f1->children[i], f2->children[i])) return false;
+    }
+
+    return true;
+}
+
+Formula* FindResolver(Formula *f1, Formula *f2)
+{   
+    if (!f1 or !f2) return nullptr;
+
+    if (f1->type == FormulaType::NOT && 
+        f1->children[0]->type == FormulaType::PREDICATE &&
+        f2->type == FormulaType::PREDICATE &&
+        FormulasEqual(f1->children[0], f2))
+    {
+        return CloneFormula(f2);
+    }
+
+    if (f1->type == FormulaType::PREDICATE &&
+        f2->type == FormulaType::NOT && 
+        f2->children[0]->type == FormulaType::PREDICATE &&
+        FormulasEqual(f1, f2->children[0])) 
+    {
+        return CloneFormula(f1);
+    }
+
+    Formula* found = nullptr;
+    
+    if (f1->type == FormulaType::OR)
+    {
+        for (Formula *child : f1->children)
+        {
+            found = FindResolver(child, f2);
+            if (found) return found;
+        }
+    }
+
+    if (f2->type == FormulaType::OR)
+    {
+        for (Formula *child : f2->children)
+        {
+            found = FindResolver(f1, child);
+            if (found) return found;
+        }
+    }
+
+    return nullptr;
+}
+
+void RemoveResolver(Formula *f, Formula *resolver)
+{
+    if (!f) return;
+
+    switch (f->type)
+    {
+       case FormulaType::OR: 
+       {
+            Formula *left  = f->children[0];
+            Formula *right = f->children[1];
+
+            if (FormulasEqual(left, resolver))
+            {
+                DeleteFormula(left);
+                f->type = right->type;
+                f->str  = right->str;
+                f->children = std::move(right->children);
+                delete right;
+                
+                RemoveResolver(f, resolver);
+                return;
+            }
+            else if (FormulasEqual(right, resolver))
+            {
+                DeleteFormula(right);
+                f->type = left->type;
+                f->str  = left->str;
+                f->children = std::move(left->children);
+                delete left;
+                
+                RemoveResolver(f, resolver);
+                return;
+            }
+            else
+            {
+                RemoveResolver(left, resolver);
+                RemoveResolver(right, resolver);
+
+                if (left->type == FormulaType::EMPTY && right->type == FormulaType::EMPTY)
+                {
+                    DeleteFormula(left);
+                    DeleteFormula(right);
+                    f->children.clear();
+                    f->type = FormulaType::EMPTY;
+                    f->str = "";
+                }
+                else if (left->type == FormulaType::EMPTY)
+                {
+                    DeleteFormula(left);
+                    f->type = right->type;
+                    f->str = right->str;
+                    f->children = std::move(right->children);
+                    delete right;
+                }
+                else if (right->type == FormulaType::EMPTY)
+                {
+                    DeleteFormula(right);
+                    f->type = left->type;
+                    f->str = left->str;
+                    f->children = std::move(left->children);
+                    delete left;
+                }
+            }
+            break;
+       }
+       case FormulaType::NOT:
+       {
+            if (FormulasEqual(f->children[0], resolver))
+            {
+                DeleteFormula(f->children[0]);
+                f->children.clear();
+                f->str = "";
+                f->type = FormulaType::EMPTY;
+            }
+            else 
+            {
+                RemoveResolver(f->children[0], resolver);
+                
+                if (f->children[0]->type == FormulaType::EMPTY)
+                {
+                    DeleteFormula(f->children[0]);
+                    f->children.clear();
+                    f->str = "";
+                    f->type = FormulaType::EMPTY;
+                }
+            }
+            break;
+       }
+       case FormulaType::PREDICATE: 
+       {
+            if (FormulasEqual(f, resolver))
+            {
+                for (Formula *child: f->children) DeleteFormula(child);
+                f->children.clear();
+                f->str = "";
+                f->type = FormulaType::EMPTY;
+            }
+            break;
+       }
+       default: 
+            for (Formula *child: f->children) RemoveResolver(child, resolver);
+            break;
+    }
+}
+
+Formula *ResolutionStep(Formula *f1, Formula *f2, Formula *resolver)
+{
+    Formula *f1_clone = CloneFormula(f1);
+    Formula *f2_clone = CloneFormula(f2);
+
+    RemoveResolver(f1_clone, resolver);
+    RemoveResolver(f2_clone, resolver);
+
+    if (f1_clone->type == FormulaType::EMPTY)
+    {
+        return f2_clone;
+    }
+    if (f2_clone->type == FormulaType::EMPTY)
+    {
+        return f1_clone;
+    }
+
+    std::vector<Formula*> stack;
+    std::vector<Formula*> predicates;
+
+    stack.push_back(f1_clone);
+    stack.push_back(f2_clone);
+
+    while (!stack.empty())
+    {
+        Formula *f = stack.back();
+        stack.pop_back();
+        
+        switch (f->type)
+        {
+            case FormulaType::OR:
+            {
+                stack.push_back(f->children[0]);
+                stack.push_back(f->children[1]);
+                break;
+            }
+            case FormulaType::PREDICATE:
+            case FormulaType::NOT:
+            {
+                predicates.push_back(f);
+                break;
+            }
+            default: break;
+        }
+
+    }
+
+    // more beatiful formula
+    std::reverse(predicates.begin(), predicates.end());
+
+    while (predicates.size() > 1)
+    {
+        Formula *f_left = predicates.back();
+        predicates.pop_back();
+        Formula *f_right = predicates.back();
+        predicates.pop_back();
+
+        Formula *temp = new Formula;
+
+        temp->type = FormulaType::OR;
+        temp->str  = GetFormulaTypeStr(FormulaType::OR);
+        temp->children.push_back(f_right);
+        temp->children.push_back(f_left);
+
+        predicates.push_back(temp);
+    }
+
+    return predicates.back();
+}
+
+bool ContainsAnd(Formula *f)
+{
+    if (!f) return false;
+
+    if (f->type == FormulaType::AND) return true;
+
+    for (Formula *child: f->children)
+    {
+        ContainsAnd(child);
+    }
+
+    return false;
+}
+
+void SplitConjunctions(Formula *f, std::vector<Formula*> &premises)
+{
+
+    if (!ContainsAnd(f))
+    {
+        premises.push_back(f);
+        return;
+    }
+
+    std::vector<Formula*> stack;
+
+    stack.push_back(f);
+
+    while (!stack.empty())
+    {
+        Formula *temp = stack.back();
+        stack.pop_back();
+
+        switch (temp->type)
+        {   
+            case FormulaType::AND:
+            {
+                stack.push_back(temp->children[0]);
+                stack.push_back(temp->children[1]);
+                break;
+            }
+            case FormulaType::OR:
+            {
+                if (temp->children[0]->type == FormulaType::PREDICATE and
+                    temp->children[1]->type == FormulaType::PREDICATE
+                )
+                {
+                    premises.push_back(temp);
+                }
+
+                if (temp->children[0]->type == FormulaType::PREDICATE and
+                    temp->children[1]->type == FormulaType::OR and
+                    !ContainsAnd(temp->children[1])
+                )
+                {
+                    premises.push_back(temp);
+                }
+                else 
+                {
+                    stack.push_back(temp->children[1]);
+                }
+                if (temp->children[1]->type == FormulaType::PREDICATE and
+                    temp->children[0]->type == FormulaType::OR and
+                    !ContainsAnd(temp->children[0])
+                )
+                {
+                    premises.push_back(temp);
+                }
+                else
+                {
+                    stack.push_back(temp->children[0]);
+                }
+                break;
+            }
+            default: break;
+        }
+    }
+
+    std::reverse(premises.begin(), premises.end());
+}
+
+bool IsTautology(Formula *f)
+{
+    std::vector<Formula*> stack;
+    std::vector<Formula*> predicates;
+
+    stack.push_back(f);
+
+    while(!stack.empty())
+    {
+        Formula *temp = stack.back();
+        stack.pop_back();
+
+        switch (temp->type)
+        {
+            case FormulaType::OR:
+            {
+                Formula *left  = temp->children[0];
+                Formula *right = temp->children[1];
+
+                if (left->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(left);
+                }
+                else
+                {
+                    stack.push_back(left);
+                }
+
+                if (right->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(right);
+                }
+                else
+                {
+                    stack.push_back(right);
+                }
+                break;
+            }
+
+            case FormulaType::NOT:
+            {
+                Formula *body = temp->children[0];
+                if (body->type == FormulaType::PREDICATE)
+                {
+                    predicates.push_back(temp);
+                }
+                else
+                {
+                    stack.push_back(body);
+                }
+                break;
+            }
+            default: break;
+        }
+    }
+
+    for (int i = 0; i < predicates.size(); ++i)
+    {
+        Formula *p = predicates[i];
+        for (int j = i + 1; j < predicates.size(); ++j)
+        {
+            Formula *not_p = predicates[j];
+
+            if (p->type == FormulaType::NOT and 
+                not_p->type == FormulaType::PREDICATE and
+                FormulasEqual(p->children[0], not_p)
+            )
+            {
+                return true;
+            }
+            else if (p->type == FormulaType::PREDICATE and 
+                not_p->type == FormulaType::NOT and
+                FormulasEqual(not_p->children[0], p)
+            )
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool MakeResolution(std::vector<Formula*> &premises, std::vector<ResolutionStepInfo> &history)
+{
+    std::vector<Formula*> used_clauses = premises;
+    std::vector<std::pair<int, int>> tried_pairs;
+
+    while (true)
+    {
+        bool found_new_premise = false;
+
+        for (int i = 0; i < used_clauses.size(); ++i)
+        {
+            for (int j = i + 1; j < used_clauses.size(); ++j)
+            {
+                auto it_pair = std::find_if(tried_pairs.begin(), tried_pairs.end(),
+                [i, j] (const std::pair<int, int> p) 
+                {
+                    return (p.first == i) and (p.second == j);
+                });
+
+                if (it_pair != tried_pairs.end()) continue;
+                
+                tried_pairs.push_back({i, j});
+
+                if(Unificate(used_clauses[i], used_clauses[j]))
+                {
+                    Formula *resolver = FindResolver(used_clauses[i], used_clauses[j]);
+
+                    if (resolver)
+                    {
+                        Formula *res = ResolutionStep(used_clauses[i], used_clauses[j], resolver);
+                        if (res->type == FormulaType::EMPTY)
+                    {
+                            history.push_back({CloneFormula(used_clauses[i]), CloneFormula(used_clauses[j]), CloneFormula(res)});
+                            return true;
+                        }
+
+                        if (!IsTautology(res))
+                        {
+                            bool is_new_clause = true;
+                            for (Formula *premise : used_clauses)
+                            {
+                                if (FormulasEqual(res, premise))
+                                {
+                                    is_new_clause = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (is_new_clause)
+                            {   
+                                history.push_back({CloneFormula(used_clauses[i]), CloneFormula(used_clauses[j]), CloneFormula(res)});
+                                used_clauses.push_back(res);
+                                found_new_premise = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!found_new_premise)
+        {
+            break;
+        }
+    }
+
     return false;
 }
