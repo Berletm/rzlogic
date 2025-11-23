@@ -997,7 +997,6 @@ bool ContainsAnd(Formula *f)
 
 void SplitConjunctions(Formula *f, std::vector<Formula*> &premises)
 {
-
     if (!ContainsAnd(f))
     {
         premises.push_back(f);
@@ -1017,14 +1016,41 @@ void SplitConjunctions(Formula *f, std::vector<Formula*> &premises)
         {   
             case FormulaType::AND:
             {
-                stack.push_back(temp->children[0]);
-                stack.push_back(temp->children[1]);
+                if (temp->children[0]->type == FormulaType::PREDICATE and 
+                    temp->children[1]->type == FormulaType::PREDICATE)
+                {
+                    premises.push_back(temp->children[0]);
+                    premises.push_back(temp->children[1]);
+                }
+                else if (temp->children[0]->type == FormulaType::PREDICATE)
+                {
+                    premises.push_back(temp->children[0]);
+                    stack.push_back(temp->children[1]);
+                }
+                else if (temp->children[1]->type == FormulaType::PREDICATE)
+                {
+                    premises.push_back(temp->children[1]);
+                    stack.push_back(temp->children[0]);
+                }
+                else
+                {
+                    stack.push_back(temp->children[0]);
+                    stack.push_back(temp->children[1]);
+                }
                 break;
             }
             case FormulaType::OR:
             {
-                if (temp->children[0]->type == FormulaType::PREDICATE and
-                    temp->children[1]->type == FormulaType::PREDICATE
+                if ((temp->children[0]->type == FormulaType::PREDICATE and
+                    temp->children[1]->type == FormulaType::PREDICATE) 
+                    or
+                    (temp->children[0]->type == FormulaType::NOT and
+                    temp->children[0]->children[0]->type == FormulaType::PREDICATE and
+                    temp->children[1]->type == FormulaType::PREDICATE)
+                    or
+                    (temp->children[1]->type == FormulaType::NOT and
+                    temp->children[1]->children[1]->type == FormulaType::PREDICATE and
+                    temp->children[0]->type == FormulaType::PREDICATE)
                 )
                 {
                     premises.push_back(temp);
@@ -1041,6 +1067,7 @@ void SplitConjunctions(Formula *f, std::vector<Formula*> &premises)
                 {
                     stack.push_back(temp->children[1]);
                 }
+
                 if (temp->children[1]->type == FormulaType::PREDICATE and
                     temp->children[0]->type == FormulaType::OR and
                     !ContainsAnd(temp->children[0])
