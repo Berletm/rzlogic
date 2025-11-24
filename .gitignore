@@ -4,3 +4,4 @@
 .cache
 build
 rzresolution.egg-info
+__pycache__

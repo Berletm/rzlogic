@@ -2,6 +2,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import rzresolution
+from utils import *
 
 load_dotenv()
 
@@ -11,122 +12,42 @@ MODEL = os.getenv('MODEL')
 
 client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=BASE_URL)
 
-agent_prompt = (
-    "Ты умный математик, работающий в области математической логики. "
-    "Тебе дают текстовую задачу на русском языке. "
-    "Тебе нужно её понять и преобразовать в набор посылок логики предикатов. "
-
-    "Используй предикаты типа H(x), L(x, y) и другие в таком же стиле в зависимости от задачи. "
-    "Причем называй константы, переменные одной буквой в нижнем регистре, а предикаты называй только вверхнем регистре. "
-    "Учитывай, что первая половина английского алфавита до буквы n не включая - это константы, а оставшаяся после n включая n - это переменные. "
-    "Используй кванторы forall, exists. "
-    "Логические операторы: implies (импликация), not (отрицание), and (конъюнкция), or (дизъюнкция). "
-
-    "ВНИМАНИЕ: Не используй математические символы `∀`, `∃`, `→`, `¬`, `∧`, `∨`. Всегда используй только слова: `forall`, `exists`, `implies`, `not`, `and`, `or`."
-
-    "Используй строго префиксную нотацию (оператор в начале). Например: `(implies (P x) (Q x))`, а не `(P(x) → Q(x))`."
-    "Аргументы в предикатах пиши без пробела, например `(H x)`, а не `(H (x))`."
-
-    "Выведи ТОЛЬКО посылки, где каждая посылка с новой строки, без нумерации и без любых других символов. "
-    "НИКОГДА не добавляй слова 'Ответ:', 'Решение:' или любые другие пояснения перед посылками. "
-    "Вывод должен начинаться СРАЗУ с первой посылки, без пустых строк в начале."
-    "Если ты добавишь любой текст кроме самих посылок, это будет ошибкой. "
-    
-    "Если перед посылкой написано ДОКАЖИ, то нужно написать отрицание этой посылки, чтобы доказывать от противного. "
-
-    "Пример КОРРЕКТНОГО вывода:\n"
-    "(forall x (implies (H x) (M x)))\n"
-    "(Human s)\n"
-    "(not (M s))\n"
-    "\n"
-    "Пример НЕКОРРЕКТНОГО вывода:\n"
-    "Ответ:\n"
-    "(forall x (implies (Human x) (Mortal x)))\n"
-    "(Human Socrates)\n"
-    "(not (Mortal Socrates))"
-)
-
-statement1 = "Все люди - смертны. Сократ - человек. Докажи, что Сократ - смертен."
-statement2 = "Существуют пациенты, которые любят абсолютно всех докторов. Любой пациент не любит любого знахаря. Докажи, что ни один доктор не является знахарем."
-statement3 = "Если идет дождь, то улица мокрая. Улица не мокрая. Докажи, что дождь не идет."
-statement4 = "Убийца никогда не носит черное. Все, кто был на вечеринке, носили черное. Джон был на вечеринке. Докажите, что Джон не убийца."
-
-def interpret_premises(premises):
-    interpretation_prompt = (
-        "Ты - эксперт по математической логике и лингвистике. "
-        "Тебе даны логические посылки в формате предикатной логики. "
-        
-        "ЗАДАЧА: Преобразовать каждую посылку в понятное объяснение на естественном русском языке.\n\n"
-        
-        "ПРАВИЛА ИНТЕРПРЕТАЦИИ:\n"
-        "1. Если посылка содержит предикаты типа H(x), L(x,y) и т.д. - попробуй угадать их смысл по контексту\n"
-        "2. Для кванторов:\n"
-        "   - (forall x (P x)) → 'Для всех x выполняется P(x)'\n"
-        "   - (exists x (P x)) → 'Существует x такой, что выполняется P(x)'\n"
-        "3. Для логических операторов:\n"
-        "   - (implies A B) → 'Если A, то B'\n"
-        "   - (and A B) → 'A и B'\n"
-        "   - (or A B) → 'A или B'\n"
-        "   - (not A) → 'не A'\n\n"
-        
-        "КРИТЕРИИ КАЧЕСТВА:\n"
-        "Объяснение должно быть понятно человеку без математического образования\n"
-        "Сохраняй исходный смысл посылки\n"
-        "Используй естественный русский язык\n"
-        "Если смысл предиката неясен - предложи возможную интерпретацию\n\n"
-        
-        "ЕСЛИ ПОСЫЛКА НЕИНТЕРПРЕТИРУЕМА:\n"
-        "Если посылка содержит только технические детали без ясного смысла "
-        "(например, '(or (P x) (not (P x)))' или скомбинированные формулы после резолюции), "
-        "напиши: 'Техническая посылка без ясной семантической интерпретации'\n\n"
-        
-        "ФОРМАТ ВЫВОДА:\n"
-        "Для КАЖДОЙ посылки выведи:\n"
-        "[Исходная посылка] → [Объяснение на русском]\n"
-        "Если неинтерпретируема → [Исходная посылка] → Техническая посылка без ясной семантической интерпретации\n\n"
-        
-        "ПРИМЕРЫ:\n"
-        "(forall x (implies (H x) (M x))) → 'Все люди смертны'\n"
-        "(H s) → 'Сократ - человек'\n"
-        "(not (M s)) → 'Сократ не является смертным'\n"
-        "(or (P x) (not (P x))) → Техническая посылка без ясной семантической интерпретации\n\n"
-        
-        "ПОСЫЛКИ ДЛЯ ИНТЕРПРЕТАЦИИ:\n" +
-        "\n".join([f"{i+1}. {premise}" for i, premise in enumerate(premises)]) +
-        "\n\nНАЧИНАЙ ВЫВОД СРАЗУ С ИНТЕРПРЕТАЦИИ, БЕЗ ЛИШНИХ СЛОВ:"
-    )
-    
-    try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": "Ты специалист по математической логике и лингвистике."},
-                {"role": "user", "content": interpretation_prompt}
-            ],
-            stream=False
-        )
-        
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Ошибка при интерпретации: {str(e)}"
-
-def main():
+def text2premises(text: str) -> list[str]:
     response = client.chat.completions.create(model=MODEL,
                                               messages=[
                                                   {"role": "system", "content": agent_prompt},
-                                                  {"role": "user", "content": statement1}],
+                                                  {"role": "user", "content": text}],
                                               stream=False)
-
-    print(response.choices[0].message.content)
     
-    premises = response.choices[0].message.content.split("\n")
+    return response.choices[0].message.content.split("\n")
 
-    interpretation = interpret_premises(premises)
-    print(interpretation)
+def premises2text(text: str, raw_premises :list[str], resolved_premises: list[str]) -> str:
+    if len(resolved_premises) == 0:
+        return "Противоречие не найдено. "
     
+    prompt = (
+                "ИЗНАЧАЛЬНАЯ ЗАДАЧА: "  + text + "\n" + 
+                "ИЗНАЧАЛЬНЫЕ ПОСЫЛКИ: " + "\n".join(raw_premises) + "\n"
+                "ПОСЫЛКИ ПОЛУЧЕННЫЕ МЕТОДОМ РЕЗОЛЮЦИИ: " + "\n".join([f"{premise[0]} + {premise[1]} = {premise[2]}" for premise in resolved_premises])
+            )
+    
+    response = client.chat.completions.create(model=MODEL,
+                                              messages=[
+                                                  {"role": "system", "content": interpretation_prompt},
+                                                  {"role": "user", "content": prompt}],
+                                              stream=False)
+    
+    return response.choices[0].message.content
+
+def resolution(text: str) -> str:
+    premises  = text2premises(text)
     res, history = rzresolution.make_resolution(premises)
-    print(res)
-    print(history)
+    interpretation = premises2text(text, premises, history)
+    return interpretation
 
+def main():
+    print(resolution(statement7))
+
+    
 if __name__ == "__main__":
     main()
