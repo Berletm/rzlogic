@@ -2,6 +2,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import rzresolution
+from utils import *
 
 load_dotenv()
 
@@ -11,60 +12,42 @@ MODEL = os.getenv('MODEL')
 
 client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=BASE_URL)
 
-agent_prompt = (
-    "Ты умный математик, работающий в области математической логики. "
-    "Тебе дают текстовую задачу на русском языке. "
-    "Тебе нужно её понять и преобразовать в набор посылок логики предикатов. "
-
-    "Используй предикаты типа H(x), L(x, y) и другие в таком же стиле в зависимости от задачи. "
-    "Причем называй константы, переменные одной буквой в нижнем регистре, а предикаты называй только вверхнем регистре. "
-    "Учитывай, что первая половина английского алфавита до буквы n не включая - это константы, а оставшаяся после n включая n - это переменные. "
-    "Используй кванторы forall, exists. "
-    "Логические операторы: implies (импликация), not (отрицание), and (конъюнкция), or (дизъюнкция). "
-
-    "ВНИМАНИЕ: Не используй математические символы `∀`, `∃`, `→`, `¬`, `∧`, `∨`. Всегда используй только слова: `forall`, `exists`, `implies`, `not`, `and`, `or`."
-
-    "Используй строго префиксную нотацию (оператор в начале). Например: `(implies (P x) (Q x))`, а не `(P(x) → Q(x))`."
-    "Аргументы в предикатах пиши без пробела, например `(H x)`, а не `(H (x))`."
-
-    "Выведи ТОЛЬКО посылки, где каждая посылка с новой строки, без нумерации и без любых других символов. "
-    "НИКОГДА не добавляй слова 'Ответ:', 'Решение:' или любые другие пояснения перед посылками. "
-    "Вывод должен начинаться СРАЗУ с первой посылки, без пустых строк в начале."
-    "Если ты добавишь любой текст кроме самих посылок, это будет ошибкой. "
-    
-    "Если перед посылкой написано ДОКАЖИ, то нужно написать отрицание этой посылки, чтобы доказывать от противного. "
-
-    "Пример КОРРЕКТНОГО вывода:\n"
-    "(forall x (implies (H x) (M x)))\n"
-    "(Human s)\n"
-    "(not (M s))\n"
-    "\n"
-    "Пример НЕКОРРЕКТНОГО вывода:\n"
-    "Ответ:\n"
-    "(forall x (implies (Human x) (Mortal x)))\n"
-    "(Human Socrates)\n"
-    "(not (Mortal Socrates))"
-)
-
-statement1 = "Все люди - смертны. Сократ - человек. Докажи, что Сократ - смертен."
-statement2 = "Существуют пациенты, которые любят абсолютно всех докторов. Любой пациент не любит любого знахаря. Докажи, что ни один доктор не является знахарем."
-statement3 = "Если идет дождь, то улица мокрая. Улица не мокрая. Докажи, что дождь не идет."
-statement4 = "Убийца никогда не носит черное. Все, кто был на вечеринке, носили черное. Джон был на вечеринке. Докажите, что Джон не убийца."
-
-def main():
+def text2premises(text: str) -> list[str]:
     response = client.chat.completions.create(model=MODEL,
                                               messages=[
                                                   {"role": "system", "content": agent_prompt},
-                                                  {"role": "user", "content": statement1}],
+                                                  {"role": "user", "content": text}],
                                               stream=False)
+    
+    return response.choices[0].message.content.split("\n")
 
-    print(response.choices[0].message.content)
+def premises2text(text: str, raw_premises :list[str], resolved_premises: list[str]) -> str:
+    if len(resolved_premises) == 0:
+        return "Противоречие не найдено. "
     
-    premises = response.choices[0].message.content.split("\n")
+    prompt = (
+                "ИЗНАЧАЛЬНАЯ ЗАДАЧА: "  + text + "\n" + 
+                "ИЗНАЧАЛЬНЫЕ ПОСЫЛКИ: " + "\n".join(raw_premises) + "\n"
+                "ПОСЫЛКИ ПОЛУЧЕННЫЕ МЕТОДОМ РЕЗОЛЮЦИИ: " + "\n".join([f"{premise[0]} + {premise[1]} = {premise[2]}" for premise in resolved_premises])
+            )
     
+    response = client.chat.completions.create(model=MODEL,
+                                              messages=[
+                                                  {"role": "system", "content": interpretation_prompt},
+                                                  {"role": "user", "content": prompt}],
+                                              stream=False)
+    
+    return response.choices[0].message.content
+
+def resolution(text: str) -> str:
+    premises  = text2premises(text)
     res, history = rzresolution.make_resolution(premises)
-    print(res)
-    print(history)
+    interpretation = premises2text(text, premises, history)
+    return interpretation
 
+def main():
+    print(resolution(statement7))
+
+    
 if __name__ == "__main__":
     main()
