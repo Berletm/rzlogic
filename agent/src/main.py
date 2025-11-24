@@ -21,8 +21,8 @@ def text2premises(text: str) -> list[str]:
     
     return response.choices[0].message.content.split("\n")
 
-def premises2text(text: str, raw_premises :list[str], resolved_premises: list[str]) -> str:
-    if len(resolved_premises) == 0:
+def premises2text(text: str, raw_premises :list[str], resolved_premises: list[str], result: bool) -> str:
+    if not result:
         return "Противоречие не найдено. "
     
     prompt = (
@@ -42,7 +42,7 @@ def premises2text(text: str, raw_premises :list[str], resolved_premises: list[st
 def resolution(text: str) -> str:
     premises  = text2premises(text)
     res, history = rzresolution.make_resolution(premises)
-    interpretation = premises2text(text, premises, history)
+    interpretation = premises2text(text, premises, history, res)
     return interpretation
 
 def main():
