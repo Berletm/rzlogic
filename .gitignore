@@ -3,5 +3,5 @@
 .vscode
 .cache
 build
-rzresolution.egg-info
+rzlogic.egg-info
 __pycache__

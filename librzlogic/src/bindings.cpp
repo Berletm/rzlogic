@@ -41,10 +41,10 @@ std::tuple<bool, std::vector<StepWrapper>> MakeResolutionWrapper(const std::vect
     return std::make_tuple(result, history_out);
 }
 
-PYBIND11_MODULE(rzresolution, rz)
+PYBIND11_MODULE(rzlogic, rz)
 {
     rz.doc() = R"pbdoc(
-        ===== RZ Resolution Module =====
+        ===== RZ Logic Module =====
         
         Python binding for C++ rzlogic library implementing resolution method
         for logical formulas.
@@ -82,9 +82,9 @@ PYBIND11_MODULE(rzresolution, rz)
             RuntimeError: If formula parsing fails
         
         Example:
-            >>> import rzresolution
+            >>> import rzlogic
             >>> premises = ["(or (P x) (Q x))", "(or (not (P x)) (Q x))"]
-            >>> success, history = rzresolution.make_resolution(premises)
+            >>> success, history = rzlogic.make_resolution(premises)
             >>> print(f"Proof successful: {success}")
             >>> for step in history:
             ...     print(f"Resolved {step[0]} and {step[1]} to get {step[2]}")
