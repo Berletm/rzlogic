@@ -10,6 +10,8 @@ if [ ! -d .rz.env ]; then
     echo "Creating virtual environment (.rz.env)"
     python3 -m venv .rz.env
     . .rz.env/bin/activate
+    pip install --upgrade pip
+    pip install setuptools
     pip install dotenv openai
     pip install .
 else
