@@ -15,8 +15,6 @@ class State(Enum):
 def mainloop() -> None:
     state = State.SELECTION_STATE
     
-    verbose = False
-    
     while True:
         match (state):
             case State.SELECTION_STATE:
