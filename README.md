@@ -18,7 +18,8 @@ sudo apt-get install -y cmake build-essential googletest libgtest-dev python3-py
 ```sh
 ./make.sh
 source .rz.env/bin/activate
-ВСТАВИТЬ КОМАНДУ ЗАПУСКА!!!!
+cd agent
+python3 main.py
 ```
 
 ## Справка по функции
