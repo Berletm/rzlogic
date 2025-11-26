@@ -1,7 +1,7 @@
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
-import rzresolution
+import rzlogic
 from utils import *
 
 load_dotenv()
@@ -41,7 +41,7 @@ def premises2text(text: str, raw_premises :list[str], resolved_premises: list[st
 
 def resolution(text: str) -> str:
     premises  = text2premises(text)
-    res, history = rzresolution.make_resolution(premises)
+    res, history = rzlogic.make_resolution(premises)
     interpretation = premises2text(text, premises, history, res)
     return interpretation
 

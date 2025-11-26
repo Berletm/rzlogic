@@ -20,7 +20,7 @@ jobs:
         sudo apt-get install python3-pybind11
     
     - name: Configure CMake
-      run: cmake -B build -S inference
+      run: cmake -B build -S librzlogic
       
     - name: Build
       run: cmake --build build
